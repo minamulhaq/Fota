@@ -1,0 +1,77 @@
+# =========================
+# macOS system files
+# =========================
+.DS_Store
+.AppleDouble
+.LSOverride
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# =========================
+# Build directories / artifacts (recursive)
+# =========================
+**/build/
+Debug/
+Release/
+*.elf
+*.bin
+*.hex
+*.axf
+*.map
+*.o
+*.obj
+*.d
+*.lst
+*.lst.*
+*.dSYM/
+
+# =========================
+# IDE / Editor files
+# =========================
+.vscode/
+.idea/
+*.code-workspace
+*.cproject
+*.project
+*.launch
+*.settings/
+*.VC.db
+*.VC.VC.opendb
+*.vscode-test/
+
+# =========================
+# CMake / Ninja / Make artifacts
+# =========================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+*.ninja
+*.ninja_log
+
+# =========================
+# Temporary files
+# =========================
+*~
+*.swp
+*.swo
+*.tmp
+*.log
+*.bak
+*.backup
+
+# =========================
+# Flash / JLink scripts
+# =========================
+*.jlink
+
+# =========================
+# Python / scripting artifacts (if using Python scripts)
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
