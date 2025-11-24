@@ -41,6 +41,7 @@ set(MX_Application_Src
 
 
     ${DIR_COMMON_SRC}/msg_printer.c
+    ${DIR_COMMON_SRC}/is_ringbuffer.c
 )
 
 # STM32 HAL/LL Drivers

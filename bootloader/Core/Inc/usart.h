@@ -45,6 +45,7 @@ void MX_USART3_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 
+
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
@@ -52,4 +53,3 @@ void MX_USART3_UART_Init(void);
 #endif
 
 #endif /* __USART_H__ */
-
