@@ -19,7 +19,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set the project name
-set(CMAKE_PROJECT_NAME bootloader)
+set(CMAKE_PROJECT_NAME app)
 
 # Include toolchain file
 include("cmake/gcc-arm-none-eabi.cmake")
@@ -81,6 +81,5 @@ add_custom_command(
     COMMAND arm-none-eabi-readelf -h $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
     COMMENT "Post-Build: Generating HEX/BIN, Reporting Size, and Verifying ELF Header"
     COMMAND /bin/ls -lh $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.hex
-    COMMAND python ${CMAKE_SOURCE_DIR}/util/pad_bootloader.py ${CMAKE_PROJECT_NAME}.bin
 )
 

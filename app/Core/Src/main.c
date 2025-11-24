@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
+#include <msg_printer.h>
 
 /* USER CODE END Includes */
 
@@ -96,13 +97,17 @@ int main(void)
 	MX_TIM6_Init();
 	MX_TIM7_Init();
 	/* USER CODE BEGIN 2 */
+	printmsg("Application Initialized\r\n");
 
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	bootloader_decide();
+	static uint32_t count = 0;
 	while (1) {
+		printmsg("Toggling led %d\r\n", count++);
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+		HAL_Delay(100);
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
