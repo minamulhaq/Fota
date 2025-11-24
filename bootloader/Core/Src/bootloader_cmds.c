@@ -6,6 +6,7 @@
 #include "usart.h"
 #include "stdlib.h"
 
+/*
 void bootloader_send_command_response(CRC_VERIFICATION v, bootloader_cmd *cmd)
 {
 	BootloaderResponseCode code = v == VERIFY_CRC_SUCCESS ? B_ACK : B_NACK;
@@ -171,3 +172,4 @@ void bcmd_erase_flash_handle(bootloader_cmd *cmd, uint8_t *data)
 void bcmd_erase_flash_response_buffer(uint8_t *buffer)
 {
 }
+*/

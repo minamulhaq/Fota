@@ -9,8 +9,8 @@ typedef enum {
     B_CMD_GET_RDP_LVL = 0x04,
     B_CMD_JMP_TO_ADDR = 0x05,
     B_CMD_ERASE_FLASH = 0x06
-} BootloaderCommandId;
-
+} bootloader_cmd_id_t;
+/*
 typedef enum {
     B_ACK = 0x0A,
     B_NACK = 0x0B
@@ -49,3 +49,4 @@ void bcmd_erase_flash_response_buffer(uint8_t* buffer);
 void bootloader_send_command_response(CRC_VERIFICATION v, bootloader_cmd* cmd);
 extern bootloader_cmd* cmd_table[];
 extern uint8_t cmd_table_size;
+*/

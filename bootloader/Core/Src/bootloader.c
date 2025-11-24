@@ -77,8 +77,7 @@ void bootloader_decide(void)
 	}
 }
 
-CRC_VERIFICATION bootloader_verify_crc(uint8_t *pData, uint32_t len,
-				       uint32_t crc_host)
+bool bootloader_verify_crc(uint8_t *pData, uint32_t len, uint32_t crc_host)
 {
 	/* Reset CRC Calculation Unit */
 	uint32_t uwCRCValue = 0xff;
@@ -90,9 +89,9 @@ CRC_VERIFICATION bootloader_verify_crc(uint8_t *pData, uint32_t len,
 	__HAL_CRC_DR_RESET(&hcrc);
 
 	if (uwCRCValue == crc_host) {
-		return VERIFY_CRC_SUCCESS;
+		return true;
 	}
-	return VERIFY_CRC_FAILED;
+	return false;
 }
 
 void bootloader_packet_setup(void)
