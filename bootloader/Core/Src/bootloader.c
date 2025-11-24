@@ -18,6 +18,7 @@
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
 
+static uint8_t elapsed_time = 5;
 void bootloader_jump_to_user_app(void)
 {
 	printmsg("bootloader_jump_to_user_app\r\n");
@@ -67,6 +68,8 @@ void run_bootloader_uart_statemachine(void)
 
 void bootloader_decide(void)
 {
+	while (elapsed_time != 0) {
+	}
 	if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET) {
 		run_bootloader_uart_statemachine();
 	} else {
@@ -113,12 +116,14 @@ extern TIM_HandleTypeDef htim7;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM6) {
-		bootloader_toggle_led();
+		bootloader_check_elapsed_time();
 	}
 }
 
-void bootloader_toggle_led(void)
+void bootloader_check_elapsed_time(void)
 {
+	elapsed_time--;
+	printmsg("Time to jump to app: %d | press button\r\n", elapsed_time);
 	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 }
 

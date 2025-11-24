@@ -37,7 +37,7 @@ typedef struct BootloaderVersion {
 	uint8_t patch;
 } BootloaderVersion;
 
-void bootloader_toggle_led(void);
+void bootloader_check_elapsed_time(void);
 
 void bootloader_packet_setup(void);
 void bootloader_packet_update(void);
