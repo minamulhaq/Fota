@@ -80,7 +80,7 @@ add_custom_command(
     COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
     COMMAND arm-none-eabi-readelf -h $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
     COMMENT "Post-Build: Generating HEX/BIN, Reporting Size, and Verifying ELF Header"
-    COMMAND /bin/ls -lh $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.hex
+    # COMMAND /bin/ls -lh $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.hex
     COMMAND python ${CMAKE_SOURCE_DIR}/util/pad_bootloader.py ${CMAKE_PROJECT_NAME}.bin
 )
 
