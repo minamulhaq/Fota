@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include "bootloader.h"
 #include "bootloader_cmds.h"
 #include "crc.h"
 #include "gpio.h"
@@ -14,11 +13,12 @@
 #include "msg_printer.h"
 #include "is_ringbuffer.h"
 #include "stm32l4xx_hal_usart.h"
+#include "comms.h"
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
 
-static int8_t elapsed_time = 5;
+static int8_t elapsed_time = 3;
 void bootloader_jump_to_user_app(void)
 {
 	printmsg("bootloader_jump_to_user_app\r\n");
@@ -57,17 +57,15 @@ void bootloader_jump_to_user_app(void)
 void run_bootloader_uart_statemachine(void)
 {
 	printmsg("run_bootloader_uart_statemachine\r\n");
-
+	comms_setup();
 	while (1) {
-		if (bootlader_is_data_available()) {
-			uint8_t data = bootloader_read_byte();
-			bootloader_send_byte(data);
-		}
+		comms_update();
 	}
 }
 
 void bootloader_decide(void)
 {
+	run_bootloader_uart_statemachine();
 	while (elapsed_time > 0) {
 		HAL_Delay(1);
 	}
@@ -79,33 +77,47 @@ void bootloader_decide(void)
 	bootloader_jump_to_user_app();
 }
 
-bool bootloader_verify_crc(uint8_t *pData, uint32_t len, uint32_t crc_host)
+bool bootloader_verify_crc(comms_packet_t *packet)
 {
-	/* Reset CRC Calculation Unit */
-	uint32_t uwCRCValue = 0xff;
+	uint32_t uwCRCValue = bootloader_compute_crc(packet);
+	printmsg("uwCRCValue = 0x%08lX\r\n", (unsigned long)uwCRCValue);
+	printmsg("packet->crc = 0x%08lX\r\n", (unsigned long)packet->crc);
 
-	for (uint32_t i = 0; i < len; i++) {
-		uint32_t i_data = pData[i];
-		uwCRCValue = HAL_CRC_Accumulate(&hcrc, &i_data, 1);
-	}
-	__HAL_CRC_DR_RESET(&hcrc);
-
-	if (uwCRCValue == crc_host) {
+	if (uwCRCValue == packet->crc) {
 		return true;
 	}
 	return false;
 }
 
-void bootloader_packet_setup(void)
+uint32_t bootloader_compute_crc(const comms_packet_t *const packet)
 {
+	if (packet == NULL) {
+		return 0;
+	}
+
+	/* Prepare a small stack buffer containing only fields covered by CRC:
+     * [ command_id ][ length ][ payload (only if length>0) ]
+     */
+	uint8_t buf[2 + MAX_PAYLOAD_SIZE];
+	uint32_t idx = 0;
+
+	/* command_id */
+	buf[idx++] = packet->command_id;
+
+	/* length */
+	buf[idx++] = packet->length;
+
+	/* payload only when length > 0 and within bounds */
+	if (packet->length > 0 && packet->length <= MAX_PAYLOAD_SIZE) {
+		for (uint32_t i = 0; i < packet->length; ++i) {
+			buf[idx++] = packet->payload[i];
+		}
+	}
+
+	/* Call your existing crc32() exactly as-is */
+	return crc32(buf, idx);
 }
-void bootloader_packet_update(void)
-{
-}
-bool bootloader_is_packet_available(void)
-{
-	return false;
-}
+
 extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim7;
 
@@ -154,9 +166,7 @@ void register_rx_it(void)
 void bootloader_usart_rx_cb(UART_HandleTypeDef *huart)
 {
 	if (&huart2 == huart) {
-		if (!ring_buffer_write(&rb, (uint8_t)buf)) {
-			/* ERROR HANDLING */
-		}
+		ring_buffer_write(&rb, (uint8_t)buf);
 		register_rx_it();
 	}
 }

@@ -20,6 +20,7 @@ typedef struct bl_command_packet {
 	uint8_t payload[MAX_PAYLOAD_SIZE];
 	uint32_t crc;
 } comms_packet_t;
+#pragma pack(pop)
 
 typedef enum comms_state {
 	COMM_STATE_ID,

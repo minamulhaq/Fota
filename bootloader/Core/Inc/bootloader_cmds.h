@@ -3,12 +3,14 @@
 #include "stdint.h"
 
 typedef enum {
-    B_CMD_GET_VERSION = 0x01,
-    B_CMD_GET_HELP = 0x02,
-    B_CMD_GET_CID = 0x03,
-    B_CMD_GET_RDP_LVL = 0x04,
-    B_CMD_JMP_TO_ADDR = 0x05,
-    B_CMD_ERASE_FLASH = 0x06
+	B_ACK               = 0xE0,
+	B_NACK              = 0xE1,
+	B_CMD_GET_VERSION   = 0xB1,
+	B_CMD_GET_HELP      = 0xB2,
+	B_CMD_GET_CID       = 0xB3,
+	B_CMD_GET_RDP_LVL   = 0xB4,
+	B_CMD_JMP_TO_ADDR   = 0xB5,
+	B_CMD_ERASE_FLASH   = 0xB6
 } bootloader_cmd_id_t;
 /*
 typedef enum {

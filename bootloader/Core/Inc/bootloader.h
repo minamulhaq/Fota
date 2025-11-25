@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "bootloader_cmds.h"
 #include "usart.h"
+#include "comms.h"
 
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 2
@@ -22,13 +23,13 @@ typedef enum {
 } bootloader_state;
 
 
-typedef struct {
-	uint8_t length;
-	uint8_t id;
-	uint8_t payload_length;
-	uint8_t payload[BOOTLOADER_RECEIVE_BUFFER_SIZE];
-	uint8_t crc[4];
-} command_packet_t;
+// typedef struct {
+// 	uint8_t length;
+// 	uint8_t id;
+// 	uint8_t payload_length;
+// 	uint8_t payload[BOOTLOADER_RECEIVE_BUFFER_SIZE];
+// 	uint8_t crc[4];
+// } command_packet_t;
 
 extern uint8_t bootloader_version[3];
 
@@ -40,15 +41,13 @@ typedef struct BootloaderVersion {
 
 void bootloader_check_elapsed_time(void);
 
-void bootloader_packet_setup(void);
-void bootloader_packet_update(void);
-bool bootloader_is_packet_available(void);
 
 extern uint8_t bootloader_receive_buffer[];
 void bootloader_jump_to_user_app(void);
 void run_bootloader_uart_statemachine(void);
 
-bool bootloader_verify_crc(uint8_t *buffer, uint32_t length, uint32_t crc_host);
+bool bootloader_verify_crc(comms_packet_t* packet);
+uint32_t bootloader_compute_crc(const comms_packet_t*const packet);
 
 void bootloader_decide(void);
 

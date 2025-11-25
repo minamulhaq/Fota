@@ -11,8 +11,14 @@ static uint8_t bytes_collected_counter = 0;
 static comms_packet_t temp_packet = { 0 };
 static uint8_t payload_buffer;
 
+static comms_packet_t ack_packet = { .command_id = B_ACK, .length = 0 };
+static comms_packet_t nack_packet = { .command_id = B_NACK, .length = 0 };
+
 void comms_setup(void)
 {
+	printmsg("Comms setup\r\n");
+	ack_packet.crc = bootloader_verify_crc(&ack_packet);
+	nack_packet.crc = bootloader_verify_crc(&ack_packet);
 }
 
 void comms_update(void)
@@ -37,27 +43,46 @@ void comms_update(void)
 		} break;
 
 		case COMM_STATE_PAYLOAD: {
-			bootloader_read_bytes(temp_packet.payload,
-					      temp_packet.length);
-			state = COMM_STATE_CRC;
+			if (bytes_collected_counter < temp_packet.length) {
+				uint8_t b;
+				if (bootloader_read_bytes(&b, 1) == 1) {
+					temp_packet.payload
+						[bytes_collected_counter++] = b;
+				}
+			}
+			if (bytes_collected_counter >= temp_packet.length) {
+				bytes_collected_counter = 0;
+				state = COMM_STATE_CRC;
+				bytes_collected_counter =
+					0; // reuse counter for CRC
+			}
 		} break;
 
 		case COMM_STATE_CRC: {
-			bootloader_read_bytes((uint8_t *)temp_packet.crc, 4);
-
-			if (
-
-				bootloader_verify_crc(
-					(uint8_t *)(&temp_packet),
-					(PACKET_LENGTH - PACKET_BYTES_CRC),
-					temp_packet.crc)) {
-				printmsg("Succesful command received: %d\r\n",
-					 temp_packet.command_id);
+			uint8_t *crc_bytes = (uint8_t *)&temp_packet.crc;
+			if (bytes_collected_counter < 4) {
+				uint8_t b;
+				if (bootloader_read_bytes(&b, 1) == 1) {
+					crc_bytes[bytes_collected_counter++] =
+						b;
+				}
 			}
-			temp_packet.length = 0;
-			temp_packet.command_id = 0;
-			temp_packet.crc = 0;
-			state = COMM_STATE_ID;
+			if (bytes_collected_counter >= 4) {
+				bytes_collected_counter = 0;
+				if (bootloader_verify_crc(&temp_packet)) {
+					printmsg(
+						"Succesful command received: %d\r\n",
+						temp_packet.command_id);
+				} else {
+					printmsg(
+						"CRC verification Failed: %d\r\n",
+						temp_packet.command_id);
+				}
+				temp_packet.length = 0;
+				temp_packet.command_id = 0;
+				temp_packet.crc = 0;
+				state = COMM_STATE_ID;
+			}
 		} break;
 
 		default: {
