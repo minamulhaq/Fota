@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 import time
 from typing import Optional
@@ -8,6 +9,11 @@ from serial.tools import list_ports
 
 BAUDRATE = 115200
 KEYWORD = "STM32"
+
+
+class PrintMode(Enum):
+    STRING_MODE = 0x00
+    BYTES_MODE = 0x01
 
 
 startup_message = """
@@ -23,7 +29,8 @@ SUPPORTED_COMMANDS: list[Command] = [CommandGetBootloaderVersion()]
 
 
 class SerialMointor:
-    def __init__(self) -> None:
+    def __init__(self, print_mode: PrintMode = PrintMode.STRING_MODE) -> None:
+        self.print_mode: PrintMode = print_mode
         self.SupportedCommands: list[Command] = SUPPORTED_COMMANDS
         self.port: Optional[Serial] = None
         self.run()
@@ -56,6 +63,29 @@ class SerialMointor:
         except Exception as e:
             raise e
 
+    def read_response_string_mode(self) -> str | None:
+        assert self.port, "Serial port not initialized"
+
+        if self.port.in_waiting > 0:
+            response_bytes = self.port.read(self.port.in_waiting)
+            try:
+                response_str = response_bytes.decode("utf-8", errors="replace")
+            except Exception as e:
+                print(f"Failed to decode response: {e}")
+                response_str = None
+            if response_str:
+                print(f"Response (string mode): {response_str.strip()}")
+            return response_str
+        return None
+
+
+    def read_response_bytes_mode(self):
+        assert self.port
+        if self.port.in_waiting > 0:
+            response = self.port.read(self.port.in_waiting)  # Use read, not readline
+            print(f"Response: {' '.join([hex(x) for x in response])}")
+            return bytes(response)
+
     def send_bootloader_cmd(self, cmd: Command) -> bytes | None:
         print(
             f"Executing Command:\n{cmd.info}\ncmd raw bytes : {' '.join([hex(x) for x in cmd.cmd])}\n"
@@ -67,13 +97,12 @@ class SerialMointor:
         self.port.reset_output_buffer()
 
         self.port.write(cmd.cmd)
+        time.sleep(0.1)
+        if self.print_mode is PrintMode.STRING_MODE:
+            self.read_response_string_mode()
+        elif self.print_mode is PrintMode.BYTES_MODE:
+            self.read_response_bytes_mode()
 
-
-        if self.port.in_waiting > 0:
-            response = self.port.read(self.port.in_waiting)
-
-            print(response)
-            return bytes(response)
 
     def run(self) -> None:
         while True:

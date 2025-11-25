@@ -57,9 +57,17 @@ void bootloader_jump_to_user_app(void)
 void run_bootloader_uart_statemachine(void)
 {
 	printmsg("run_bootloader_uart_statemachine\r\n");
-	comms_setup();
+	comm_state_init();
 	while (1) {
-		comms_update();
+		if (bootlader_is_data_available()) {
+			comms_state_t state =
+				comm_state_process_byte(bootloader_read_byte());
+			if (state == COMM_STATE_PACKET_READY) {
+				printmsg("Successfully verified packet\r\n");
+			} else if (state == COMM_STATE_PACKET_INVALID) {
+				printmsg("Packet invalid\r\n");
+			}
+		}
 	}
 }
 

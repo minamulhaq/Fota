@@ -31,11 +31,23 @@ typedef enum comms_state {
 	COMM_STATE_PACKET_INVALID
 } comms_state_t;
 
-void comms_setup(void);
-void comms_update(void);
 
-bool comms_packets_available(void);
-void comms_write_packet(comms_packet_t *packet);
-void comms_read_packet(comms_packet_t *packet);
+typedef struct comm_context comm_context_t;
+
+/* State function pointers */
+typedef comms_state_t (*comm_state_function)(uint8_t byte);
+
+struct comm_context {
+	comm_state_function state;
+};
+
+/* State function declarations */
+comms_state_t comm_state_init();
+comms_state_t comm_state_process_byte(uint8_t byte);
+comms_state_t comm_state_id(uint8_t byte);
+comms_state_t comm_state_length(uint8_t byte);
+comms_state_t comm_state_payload(uint8_t byte);
+comms_state_t comm_state_crc(uint8_t byte);
+comms_state_t comm_state_crc_verify(void);
 
 #endif // _INC_BL_COMMAND_PACKET_H__
