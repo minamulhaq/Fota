@@ -27,6 +27,8 @@ typedef enum comms_state {
 	COMM_STATE_LENGTH,
 	COMM_STATE_PAYLOAD,
 	COMM_STATE_CRC,
+	COMM_STATE_PACKET_READY,
+	COMM_STATE_PACKET_INVALID
 } comms_state_t;
 
 void comms_setup(void);

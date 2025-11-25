@@ -31,8 +31,9 @@ class SerialMointor:
     def scan_com_ports(self) -> None | Serial:
         for port in list_ports.comports():
             if KEYWORD in port.description:
-                self.port = Serial(port.device, BAUDRATE, timeout=1)
-                return self.port
+                print(port)
+                port = Serial(port.device, BAUDRATE, timeout=1)
+                return port
         return None
 
     @property
@@ -43,11 +44,17 @@ class SerialMointor:
         return startup_message + cmd_strs + "\n\nEnter command ID to execute: "
 
     def connect(self):
-        if self.port is None:
-            self.port = self.scan_com_ports()
-            print("No port found")
-            return
-        self.port.open()
+        try:
+            if self.port is None:
+                self.port = self.scan_com_ports()
+                print("No port found")
+
+            if self.port:
+                self.port.open()
+                return True
+            return False
+        except Exception as e:
+            raise e
 
     def send_bootloader_cmd(self, cmd: Command) -> bytes | None:
         print(
@@ -65,7 +72,7 @@ class SerialMointor:
         if self.port.in_waiting > 0:
             response = self.port.read(self.port.in_waiting)
 
-            print("RX:", " ".join([hex(b) for b in response]))
+            print(response)
             return bytes(response)
 
     def run(self) -> None:
@@ -73,13 +80,14 @@ class SerialMointor:
             try:
                 # os.system("cls" if os.name == "nt" else "clear")
                 if not self.port:
-                    self.scan_com_ports()
+                    self.port = self.scan_com_ports()
+
+                    if not self.port:
+                        print("Device not connected")
+                        break
 
                 if self.port and not self.port.is_open:
                     self.connect()
-                else:
-                    print("Device not connected")
-                    break
 
                 cmd_id = input(self.startup_message)
 

@@ -13,7 +13,6 @@
 
 #define BOOTLOADER_RECEIVE_BUFFER_SIZE 256
 
-// Function pointer to the reset handler of the user application
 typedef void (*app_reset_hander_t)(void);
 
 typedef enum {
@@ -23,13 +22,6 @@ typedef enum {
 } bootloader_state;
 
 
-// typedef struct {
-// 	uint8_t length;
-// 	uint8_t id;
-// 	uint8_t payload_length;
-// 	uint8_t payload[BOOTLOADER_RECEIVE_BUFFER_SIZE];
-// 	uint8_t crc[4];
-// } command_packet_t;
 
 extern uint8_t bootloader_version[3];
 
