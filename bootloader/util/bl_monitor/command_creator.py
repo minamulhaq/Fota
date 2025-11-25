@@ -97,9 +97,11 @@ class Command(ABC):
         return raw
 
 
+# ============================================================================
+# COMMAND IMPLEMENTATIONS
+# ============================================================================
+
 class CommandGetBootloaderVersion(Command):
-    def __init__(self) -> None:
-        super().__init__()
     @property
     def packet(self) -> Packet:
         return Packet(id=CommandIDs.B_CMD_GET_VERSION.value, length=0)
@@ -108,28 +110,93 @@ class CommandGetBootloaderVersion(Command):
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=CommandIDs.B_CMD_GET_VERSION.value,
-            description=f"ID: {int(CommandIDs.B_CMD_GET_VERSION.value)} |  {CommandIDs.B_CMD_GET_VERSION.value:#02X} | Get Bootloader Version",
+            description=f"ID: {CommandIDs.B_CMD_GET_VERSION.value} | {CommandIDs.B_CMD_GET_VERSION.value:#04X} | Get Bootloader Version",
             nemonic="CommandGetBootloaderVersion",
         )
 
 
-# Example usage
-if __name__ == "__main__":
-    cmd = CommandGetBootloaderVersion()
-    # Pretty print command bytes before sending
-    hex_bytes = " ".join(f"{b:02X}" for b in cmd.cmd)
-    ascii_bytes = "".join((chr(b) if 32 <= b < 127 else ".") for b in cmd.cmd)
-    print(f"Cmd bytes (hex): {hex_bytes}")
-    ser = Serial("COM16", 115200, timeout=0.5)
-    ser.write(cmd.cmd)
-    try:
-        # Continuously read line by line
-        while True:
-            line = ser.readline()  # reads until '\n' or timeout
-            if line:
-                print(line)
-            time.sleep(0.2)  # small delay to avoid CPU spinning
-    except KeyboardInterrupt:
-        print("Stopping serial read")
-    finally:
-        ser.close()
+class CommandGetHelp(Command):
+    @property
+    def packet(self) -> Packet:
+        return Packet(id=CommandIDs.B_CMD_GET_HELP.value, length=0)
+
+    @property
+    def info(self) -> CommandInfo:
+        return CommandInfo(
+            id=CommandIDs.B_CMD_GET_HELP.value,
+            description=f"ID: {CommandIDs.B_CMD_GET_HELP.value} | {CommandIDs.B_CMD_GET_HELP.value:#04X} | Get Supported Commands",
+            nemonic="CommandGetHelp",
+        )
+
+
+class CommandGetChipID(Command):
+    @property
+    def packet(self) -> Packet:
+        return Packet(id=CommandIDs.B_CMD_GET_CID.value, length=0)
+
+    @property
+    def info(self) -> CommandInfo:
+        return CommandInfo(
+            id=CommandIDs.B_CMD_GET_CID.value,
+            description=f"ID: {CommandIDs.B_CMD_GET_CID.value} | {CommandIDs.B_CMD_GET_CID.value:#04X} | Get Chip ID",
+            nemonic="CommandGetChipID",
+        )
+
+
+class CommandGetRDPLevel(Command):
+    @property
+    def packet(self) -> Packet:
+        return Packet(id=CommandIDs.B_CMD_GET_RDP_LVL.value, length=0)
+
+    @property
+    def info(self) -> CommandInfo:
+        return CommandInfo(
+            id=CommandIDs.B_CMD_GET_RDP_LVL.value,
+            description=f"ID: {CommandIDs.B_CMD_GET_RDP_LVL.value} | {CommandIDs.B_CMD_GET_RDP_LVL.value:#04X} | Get Read Protection Level",
+            nemonic="CommandGetRDPLevel",
+        )
+
+
+class CommandJumpToAddress(Command):
+    def __init__(self, address: int):
+        self.address = address
+
+    @property
+    def packet(self) -> Packet:
+        # Address as 4 bytes little-endian
+        payload = list(self.address.to_bytes(4, byteorder="little"))
+        return Packet(id=CommandIDs.B_CMD_JMP_TO_ADDR.value, length=4, payload=payload)
+
+    @property
+    def info(self) -> CommandInfo:
+        return CommandInfo(
+            id=CommandIDs.B_CMD_JMP_TO_ADDR.value,
+            description=f"ID: {CommandIDs.B_CMD_JMP_TO_ADDR.value} | {CommandIDs.B_CMD_JMP_TO_ADDR.value:#04X} | Jump to Address: 0x{self.address:08X}",
+            nemonic="CommandJumpToAddress",
+        )
+
+
+class CommandEraseFlash(Command):
+    def __init__(self, sectors: list[int] | None = None, mass_erase: bool = False):
+        self.sectors = sectors if sectors else []
+        self.mass_erase = mass_erase
+
+    @property
+    def packet(self) -> Packet:
+        if self.mass_erase:
+            payload = [0xFF, 0xFF]
+            length = 2
+        else:
+            payload = [len(self.sectors)] + self.sectors
+            length = len(payload)
+
+        return Packet(id=CommandIDs.B_CMD_ERASE_FLASH.value, length=length, payload=payload)
+
+    @property
+    def info(self) -> CommandInfo:
+        erase_type = "Mass Erase" if self.mass_erase else f"Erase Sectors: {self.sectors}"
+        return CommandInfo(
+            id=CommandIDs.B_CMD_ERASE_FLASH.value,
+            description=f"ID: {CommandIDs.B_CMD_ERASE_FLASH.value} | {CommandIDs.B_CMD_ERASE_FLASH.value:#04X} | {erase_type}",
+            nemonic="CommandEraseFlash",
+        )

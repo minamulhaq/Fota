@@ -3,141 +3,210 @@ import os
 import time
 from typing import Optional
 
-from bl_monitor import Command, CommandGetBootloaderVersion
+from bl_monitor import PacketParser
+from bl_monitor import (
+    Packet,
+    Command,
+    CommandJumpToAddress,
+    CommandEraseFlash,
+    CommandGetBootloaderVersion,
+    CommandGetHelp,
+    CommandGetChipID,
+    CommandGetRDPLevel,
+)
 from serial import Serial
 from serial.tools import list_ports
+# ============================================================================
+# SERIAL MONITOR
+# ============================================================================
 
 BAUDRATE = 115200
 KEYWORD = "STM32"
+TIMEOUT = 2.0  # Response timeout in seconds
 
 
-class PrintMode(Enum):
-    STRING_MODE = 0x00
-    BYTES_MODE = 0x01
-
-
-startup_message = """
-+---------------------------------------+
-|    STM32 Bootloader Communication     |
-+---------------------------------------+
-
-Enter Decimal ID for any of following Supported Commands:
-
-"""
-
-SUPPORTED_COMMANDS: list[Command] = [CommandGetBootloaderVersion()]
-
-
-class SerialMointor:
-    def __init__(self, print_mode: PrintMode = PrintMode.STRING_MODE) -> None:
-        self.print_mode: PrintMode = print_mode
-        self.SupportedCommands: list[Command] = SUPPORTED_COMMANDS
+class SerialMonitor:
+    def __init__(self):
         self.port: Optional[Serial] = None
-        self.run()
+        self.parser = PacketParser()
+        self.supported_commands: list[Command] = [
+            CommandGetBootloaderVersion(),
+            CommandGetHelp(),
+            CommandGetChipID(),
+            CommandGetRDPLevel(),
+        ]
 
-    def scan_com_ports(self) -> None | Serial:
-        for port in list_ports.comports():
-            if KEYWORD in port.description:
-                print(port)
-                port = Serial(port.device, BAUDRATE, timeout=1)
-                return port
+    def scan_com_ports(self) -> Optional[Serial]:
+        """Scan for STM32 device"""
+        print(f"[SCAN] Searching for '{KEYWORD}' device...")
+        for port_info in list_ports.comports():
+            if KEYWORD in port_info.description:
+                print(f"[SCAN] Found: {port_info.device} - {port_info.description}")
+                return Serial(port_info.device, BAUDRATE, timeout=TIMEOUT)
+        print(f"[SCAN] No device found")
         return None
 
-    @property
-    def startup_message(self):
-        cmd_strs = ""
-        for cmd in self.SupportedCommands:
-            cmd_strs += cmd.info.description
-        return startup_message + cmd_strs + "\n\nEnter command ID to execute: "
-
-    def connect(self):
+    def connect(self) -> bool:
+        """Connect to device"""
         try:
             if self.port is None:
                 self.port = self.scan_com_ports()
-                print("No port found")
+                if not self.port:
+                    return False
 
-            if self.port:
+            if not self.port.is_open:
                 self.port.open()
-                return True
-            return False
+                print(f"[CONNECT] Port opened: {self.port.name}")
+
+            return True
         except Exception as e:
-            raise e
+            print(f"[CONNECT] ERROR: {e}")
+            return False
 
-    def read_response_string_mode(self) -> str | None:
-        assert self.port, "Serial port not initialized"
+    def send_command(self, cmd: Command) -> Optional[Packet]:
+        """Send command and receive response"""
+        if not self.port or not self.port.is_open:
+            print("[SEND] ERROR: Port not open")
+            return None
 
-        if self.port.in_waiting > 0:
-            response_bytes = self.port.read(self.port.in_waiting)
-            try:
-                response_str = response_bytes.decode("utf-8", errors="replace")
-            except Exception as e:
-                print(f"Failed to decode response: {e}")
-                response_str = None
-            if response_str:
-                print(f"Response (string mode): {response_str.strip()}")
-            return response_str
-        return None
+        print(f"\n{'=' * 60}")
+        print(f"SENDING COMMAND")
+        print(f"{'=' * 60}")
+        print(cmd.info)
 
-
-    def read_response_bytes_mode(self):
-        assert self.port
-        if self.port.in_waiting > 0:
-            response = self.port.read(self.port.in_waiting)  # Use read, not readline
-            print(f"Response: {' '.join([hex(x) for x in response])}")
-            return bytes(response)
-
-    def send_bootloader_cmd(self, cmd: Command) -> bytes | None:
+        raw_cmd = cmd.cmd
         print(
-            f"Executing Command:\n{cmd.info}\ncmd raw bytes : {' '.join([hex(x) for x in cmd.cmd])}\n"
+            f"\n[TX] Raw bytes ({len(raw_cmd)}): {' '.join([f'{b:02X}' for b in raw_cmd])}"
         )
+        print(f"[TX] Breakdown:")
+        print(f"     ID:      0x{raw_cmd[0]:02X}")
+        print(f"     Length:  {raw_cmd[1]}")
+        if raw_cmd[1] > 0:
+            print(
+                f"     Payload: {' '.join([f'{b:02X}' for b in raw_cmd[2 : 2 + raw_cmd[1]]])}"
+            )
+        crc_bytes = raw_cmd[-4:]
+        print(f"     CRC32:   {' '.join([f'{b:02X}' for b in crc_bytes])} (LE)")
 
-        assert self.port
-
+        # Clear buffers
         self.port.reset_input_buffer()
         self.port.reset_output_buffer()
 
-        self.port.write(cmd.cmd)
-        time.sleep(0.1)
-        if self.print_mode is PrintMode.STRING_MODE:
-            self.read_response_string_mode()
-        elif self.print_mode is PrintMode.BYTES_MODE:
-            self.read_response_bytes_mode()
+        # Send command
+        bytes_sent = self.port.write(raw_cmd)
+        self.port.flush()
+        print(f"[TX] Sent {bytes_sent} bytes")
 
+        # Wait for response
+        print(f"[RX] Waiting for response (timeout={TIMEOUT}s)...")
+        time.sleep(0.2)  # Give STM32 time to process
 
-    def run(self) -> None:
+        if self.port.in_waiting == 0:
+            print(f"[RX] No data received (timeout)")
+            return None
+
+        # Read response
+        response_bytes = self.port.read(self.port.in_waiting)
+        print(
+            f"[RX] Received {len(response_bytes)} bytes: {' '.join([f'{b:02X}' for b in response_bytes])}"
+        )
+
+        # Parse response
+        packet = self.parser.parse_response(response_bytes)
+
+        if packet:
+            self.parser.interpret_response(packet)
+
+        return packet
+
+    def run(self):
+        """Main interactive loop"""
+        print(f"\n{'=' * 60}")
+        print(f"STM32 BOOTLOADER MONITOR")
+        print(f"{'=' * 60}\n")
+
         while True:
             try:
-                # os.system("cls" if os.name == "nt" else "clear")
-                if not self.port:
-                    self.port = self.scan_com_ports()
-
-                    if not self.port:
-                        print("Device not connected")
-                        break
-
-                if self.port and not self.port.is_open:
-                    self.connect()
-
-                cmd_id = input(self.startup_message)
-
-                if not cmd_id:
+                if not self.connect():
+                    print("\n[ERROR] Device not connected. Retrying in 3s...")
+                    time.sleep(3)
                     continue
-                os.system("cls" if os.name == "nt" else "clear")
-                valid_cmd: Optional[Command] = None
-                for cmd in self.SupportedCommands:
-                    if cmd.validate_id(int(cmd_id)):
-                        valid_cmd = cmd
 
-                if not valid_cmd:
-                    print("Invalid Command")
+                # Display menu
+                print(f"\n{'=' * 60}")
+                print("AVAILABLE COMMANDS")
+                print(f"{'=' * 60}")
+                for idx, cmd in enumerate(self.supported_commands, 1):
+                    print(f"{idx}. {cmd.info.description}")
+                print(f"{len(self.supported_commands) + 1}. Jump to Address (custom)")
+                print(f"{len(self.supported_commands) + 2}. Erase Flash (custom)")
+                print("0. Exit")
+                print(f"{'=' * 60}")
+
+                choice = input("\nEnter choice: ").strip()
+
+                if choice == "0":
+                    print("Exiting...")
+                    break
+
+                if not choice.isdigit():
+                    print("[ERROR] Invalid input")
+                    continue
+
+                choice_idx = int(choice)
+
+                # Handle predefined commands
+                if 1 <= choice_idx <= len(self.supported_commands):
+                    cmd = self.supported_commands[choice_idx - 1]
+                    self.send_command(cmd)
+
+                # Handle Jump to Address
+                elif choice_idx == len(self.supported_commands) + 1:
+                    addr_str = input("Enter address (hex, e.g., 0x08000000): ").strip()
+                    try:
+                        address = int(addr_str, 16)
+                        cmd = CommandJumpToAddress(address)
+                        self.send_command(cmd)
+                    except ValueError:
+                        print("[ERROR] Invalid address format")
+
+                # Handle Erase Flash
+                elif choice_idx == len(self.supported_commands) + 2:
+                    erase_type = input("Mass erase? (y/n): ").strip().lower()
+                    if erase_type == "y":
+                        cmd = CommandEraseFlash(mass_erase=True)
+                        self.send_command(cmd)
+                    else:
+                        sectors_str = input(
+                            "Enter sector numbers (comma-separated, e.g., 1,2,3): "
+                        ).strip()
+                        try:
+                            sectors = [int(s.strip()) for s in sectors_str.split(",")]
+                            cmd = CommandEraseFlash(sectors=sectors)
+                            self.send_command(cmd)
+                        except ValueError:
+                            print("[ERROR] Invalid sector format")
+
                 else:
-                    self.send_bootloader_cmd(valid_cmd)
+                    print("[ERROR] Invalid choice")
 
-                input("\n\npress Enter key to continue")
+                input("\nPress Enter to continue...")
+
+            except KeyboardInterrupt:
+                print("\n\n[EXIT] Interrupted by user")
+                break
             except Exception as e:
-                print(e)
-                input()
+                print(f"\n[ERROR] {e}")
+                import traceback
+
+                traceback.print_exc()
+                input("\nPress Enter to continue...")
+
+        if self.port and self.port.is_open:
+            self.port.close()
+            print("[DISCONNECT] Port closed")
 
 
 if __name__ == "__main__":
-    sm = SerialMointor()
+    monitor = SerialMonitor()
+    monitor.run()
