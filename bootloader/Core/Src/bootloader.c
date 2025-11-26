@@ -54,18 +54,27 @@ void bootloader_jump_to_user_app(void)
 	app_reset_hander();
 }
 
-void run_bootloader_uart_statemachine(void)
+void run_bootloader_main_fsm(void)
 {
-	printmsg("run_bootloader_uart_statemachine\r\n");
+	printmsg("run bootloader uart statemachine\r\n");
 	comm_state_init(NULL);
 	while (1) {
 		if (bootlader_is_data_available()) {
 			uint8_t byte = bootloader_read_byte();
 			comms_state_t state = comm_state_process_byte(&byte);
-			if (state == COMM_STATE_PACKET_READY) {
+			switch (state) {
+			case COMM_STATE_PACKET_READY: {
 				printmsg("Successfully verified packet\r\n");
-			} else if (state == COMM_STATE_PACKET_INVALID) {
+				comm_state_init(NULL);
+				break;
+			}
+			case COMM_STATE_PACKET_INVALID:
 				printmsg("Packet invalid\r\n");
+				comm_state_init(NULL);
+				break;
+
+			default:
+				break;
 			}
 		}
 	}
@@ -73,13 +82,13 @@ void run_bootloader_uart_statemachine(void)
 
 void bootloader_decide(void)
 {
-	run_bootloader_uart_statemachine();
+	run_bootloader_main_fsm();
 	while (elapsed_time > 0) {
 		HAL_Delay(1);
 	}
 
 	if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET) {
-		run_bootloader_uart_statemachine();
+		run_bootloader_main_fsm();
 		return; // exit after entering bootloader
 	}
 	bootloader_jump_to_user_app();

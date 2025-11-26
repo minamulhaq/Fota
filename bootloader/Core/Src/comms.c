@@ -11,9 +11,6 @@ static uint8_t bytes_collected_counter = 0;
 static comms_packet_t temp_packet = { 0 };
 static uint8_t payload_buffer;
 
-static comms_packet_t ack_packet = { .command_id = B_ACK, .length = 0 };
-static comms_packet_t nack_packet = { .command_id = B_NACK, .length = 0 };
-
 static comm_context_t COMM_FSM = { 0 };
 static Event const entryEvt = { SIGNAL_ENTRY };
 static Event const exitEvt = { SIGNAL_EXIT };
@@ -34,9 +31,6 @@ comms_state_t comm_state_process_byte(uint8_t *byte)
 	if (state == STATE_TRANSITION) {
 		(prev)(&exitEvt, byte);
 		(COMM_FSM.state)(&entryEvt, byte);
-	} else if (state == COMM_STATE_PACKET_READY ||
-		   state == COMM_STATE_PACKET_INVALID) {
-		comm_state_init(NULL);
 	}
 
 	return state;
@@ -151,3 +145,4 @@ comms_state_t comm_state_crc(Event const *const e, uint8_t *byte)
 	}
 	return state;
 }
+

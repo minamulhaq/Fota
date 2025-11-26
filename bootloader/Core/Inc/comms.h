@@ -13,6 +13,17 @@
 	(PACKET_BYTES_ID + PACKET_BYTES_LENGTH + PACKET_BYTES_PAYLOAD + \
 	 PACKET_BYTES_CRC)
 
+typedef enum {
+	B_ACK = 0xE0,
+	B_NACK = 0xE1,
+	PAYLOAD_TYPE_BINARY = 0xE2,
+	PAYLOAD_TYPE_STRING = 0xE3,
+	PAYLOAD_TYPE_JSON = 0xE4,
+	B_DEBUG_STRING = 0xF0,
+	B_LOG_MESSAGE = 0xF1,
+	B_ERROR_STRING = 0xF2
+} payload_type_t;
+
 #pragma pack(push, 1)
 typedef struct bl_command_packet {
 	uint8_t command_id;
@@ -74,5 +85,6 @@ comms_state_t comm_state_id(Event const *const e, uint8_t *byte);
 comms_state_t comm_state_length(Event const *const e, uint8_t *byte);
 comms_state_t comm_state_payload(Event const *const e, uint8_t *byte);
 comms_state_t comm_state_crc(Event const *const e, uint8_t *byte);
+
 
 #endif // _INC_BL_COMMAND_PACKET_H__

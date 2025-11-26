@@ -36,7 +36,7 @@ void bootloader_check_elapsed_time(void);
 
 extern uint8_t bootloader_receive_buffer[];
 void bootloader_jump_to_user_app(void);
-void run_bootloader_uart_statemachine(void);
+void run_bootloader_main_fsm(void);
 
 bool bootloader_verify_crc(comms_packet_t* packet);
 uint32_t bootloader_compute_crc(const comms_packet_t*const packet);

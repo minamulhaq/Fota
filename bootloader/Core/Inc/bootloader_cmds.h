@@ -3,8 +3,6 @@
 #include "stdint.h"
 
 typedef enum {
-	B_ACK               = 0xE0,
-	B_NACK              = 0xE1,
 	B_CMD_GET_VERSION   = 0xB1,
 	B_CMD_GET_HELP      = 0xB2,
 	B_CMD_GET_CID       = 0xB3,
