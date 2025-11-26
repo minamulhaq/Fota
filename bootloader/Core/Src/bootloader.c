@@ -14,6 +14,7 @@
 #include "is_ringbuffer.h"
 #include "stm32l4xx_hal_usart.h"
 #include "comms.h"
+#include "bootloader_fsm.h"
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
@@ -54,6 +55,7 @@ void bootloader_jump_to_user_app(void)
 	app_reset_hander();
 }
 
+static bootloader_fsm_handler handler = { 0 };
 void run_bootloader_main_fsm(void)
 {
 	printmsg("run bootloader uart statemachine\r\n");

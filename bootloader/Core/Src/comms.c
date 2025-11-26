@@ -12,8 +12,6 @@ static comms_packet_t temp_packet = { 0 };
 static uint8_t payload_buffer;
 
 static comm_context_t COMM_FSM = { 0 };
-static Event const entryEvt = { SIGNAL_ENTRY };
-static Event const exitEvt = { SIGNAL_EXIT };
 static Event const byteReceivedEvent = { SIGNAL_BYTE_RECEIVED };
 
 status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
@@ -30,8 +28,7 @@ status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
 	return state;
 }
 
-status_t comm_state_init(Event const *const e, uint8_t *byte,
-			 packet_status_t *packet_status)
+status_t comm_state_init(Event const *const e, uint8_t *byte, packet_status_t *packet_status)
 {
 	status_t state;
 	switch (e->sig) {
