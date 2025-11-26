@@ -1,27 +1,27 @@
-from enum import Enum
 import os
 import time
 from typing import Optional
 
-from bl_monitor import PacketParser
 from bl_monitor import (
-    Packet,
     Command,
-    CommandJumpToAddress,
     CommandEraseFlash,
     CommandGetBootloaderVersion,
-    CommandGetHelp,
     CommandGetChipID,
+    CommandGetHelp,
     CommandGetRDPLevel,
+    CommandJumpToAddress,
+    Packet,
+    PacketParser,
 )
 from serial import Serial
 from serial.tools import list_ports
+
 # ============================================================================
 # SERIAL MONITOR
 # ============================================================================
 
 BAUDRATE = 115200
-KEYWORD = "STM32"
+KEYWORD = "STM"
 TIMEOUT = 2.0  # Response timeout in seconds
 
 

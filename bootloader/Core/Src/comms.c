@@ -3,6 +3,7 @@
 State machine setup to receive command packets
 */
 
+#include "common_defines.h"
 #include "comms.h"
 #include "bootloader.h"
 
@@ -14,101 +15,139 @@ static comms_packet_t ack_packet = { .command_id = B_ACK, .length = 0 };
 static comms_packet_t nack_packet = { .command_id = B_NACK, .length = 0 };
 
 static comm_context_t COMM_FSM = { 0 };
+static Event const entryEvt = { SIGNAL_ENTRY };
+static Event const exitEvt = { SIGNAL_EXIT };
+static Event const byteReceivedEvent = { SIGNAL_BYTE_RECEIVED };
 
-/*
-void comms_update(void)
-{
-
-		case COMM_STATE_PAYLOAD: {
-		} break;
-
-		case COMM_STATE_CRC: {
-		} break;
-
-		default: {
-			state = COMM_STATE_ID;
-			break;
-		}
-		}
-	}
-}
-*/
-
-comms_state_t comm_state_init()
+void comm_state_init(Event const *const e)
 {
 	printmsg("Comms setup\r\n");
-	COMM_FSM.state = comm_state_id;
-	ack_packet.crc = bootloader_verify_crc(&ack_packet);
-	nack_packet.crc = bootloader_verify_crc(&nack_packet);
-	bytes_collected_counter = 0;
-	return COMM_STATE_ID;
+	TRANSIT_TO(comm_state_id);
+	(*COMM_FSM.state)(&entryEvt, NULL);
 }
-comms_state_t comm_state_process_byte(uint8_t byte)
+comms_state_t comm_state_process_byte(uint8_t *byte)
 {
-	return COMM_FSM.state(byte);
+	printmsg("Byte received: %x\r\n", *byte);
+	comms_state_t state;
+	comm_state_handler prev = COMM_FSM.state;
+	state = (*COMM_FSM.state)(&byteReceivedEvent, byte);
+	if (state == STATE_TRANSITION) {
+		(prev)(&exitEvt, byte);
+		(COMM_FSM.state)(&entryEvt, byte);
+	} else if (state == COMM_STATE_PACKET_READY ||
+		   state == COMM_STATE_PACKET_INVALID) {
+		comm_state_init(NULL);
+	}
+
+	return state;
 }
-comms_state_t comm_state_id(uint8_t byte)
+comms_state_t comm_state_id(Event const *const e, uint8_t *byte)
 {
-	temp_packet.command_id = byte;
-	/* TODO: Verify ID? */
-	COMM_FSM.state = comm_state_length;
-	return COMM_STATE_LENGTH;
-}
-comms_state_t comm_state_length(uint8_t byte)
-{
-	if ((uint8_t)byte < 1) {
-		temp_packet.length = 0;
-		COMM_FSM.state = comm_state_crc;
-		return COMM_STATE_CRC;
-	} else {
-		temp_packet.length = (uint8_t)byte;
+	comms_state_t state;
+	switch (e->sig) {
+	case SIGNAL_ENTRY: {
 		bytes_collected_counter = 0;
-		COMM_FSM.state = comm_state_payload;
-		return COMM_STATE_PAYLOAD;
+		memset(&temp_packet, 0, sizeof(temp_packet));
+		TRANSIT_TO(comm_state_id);
+		state = STATE_HANDLED;
+		break;
 	}
-}
-comms_state_t comm_state_payload(uint8_t byte)
-{
-	// Collect payload byte
-	if (bytes_collected_counter < temp_packet.length) {
-		temp_packet.payload[bytes_collected_counter++] = byte;
+	case SIGNAL_BYTE_RECEIVED: {
+		temp_packet.command_id = *byte;
+		state = STATE_HANDLED;
+		state = TRANSIT_TO(comm_state_length);
+		break;
+	}
 
-		// Check if payload collection is complete
-		if (bytes_collected_counter >= temp_packet.length) {
-			bytes_collected_counter = 0; // Reset for CRC collection
-			COMM_FSM.state = comm_state_crc;
-			return COMM_STATE_CRC;
+	default: {
+		state = STATE_IGNORED;
+		break;
+	}
+	}
+	return state;
+}
+comms_state_t comm_state_length(Event const *const e, uint8_t *byte)
+{
+	comms_state_t state;
+	switch (e->sig) {
+	case SIGNAL_BYTE_RECEIVED: {
+		if (*byte < 1) {
+			temp_packet.length = 0;
+			TRANSIT_TO(comm_state_crc);
+		} else {
+			temp_packet.length = *byte;
+			TRANSIT_TO(comm_state_payload);
 		}
-		return COMM_STATE_PAYLOAD; // Still collecting
+		state = STATE_TRANSITION;
+		break;
 	}
+	case SIGNAL_EXIT: {
+		break;
+	}
+
+	default: {
+		state = STATE_IGNORED;
+		break;
+	}
+	}
+	return state;
 }
-comms_state_t comm_state_crc(uint8_t byte)
+comms_state_t comm_state_payload(Event const *const e, uint8_t *byte)
 {
-	uint8_t *crc_bytes = (uint8_t *)&temp_packet.crc;
+	comms_state_t state;
+	switch (e->sig) {
+	case SIGNAL_ENTRY: {
+		bytes_collected_counter = 0;
+		break;
+	}
 
-	if (bytes_collected_counter < 4) {
-		crc_bytes[bytes_collected_counter++] = byte;
+	case SIGNAL_BYTE_RECEIVED: {
+		if (bytes_collected_counter < temp_packet.length) {
+			temp_packet.payload[bytes_collected_counter++] = *byte;
+			state = STATE_HANDLED;
 
-		if (bytes_collected_counter == 4) {
-			return comm_state_crc_verify();
+			// Check if payload collection is complete
+			if (bytes_collected_counter >= temp_packet.length) {
+				state = TRANSIT_TO(comm_state_crc);
+			}
 		}
-		return COMM_STATE_CRC;
+		break;
 	}
-	return comm_state_crc_verify();
+
+	default: {
+		state = STATE_IGNORED;
+		break;
+	}
+	}
+	return state;
 }
-comms_state_t comm_state_crc_verify(void)
+comms_state_t comm_state_crc(Event const *const e, uint8_t *byte)
 {
-	bool valid = bootloader_verify_crc(&temp_packet);
+	comms_state_t state;
+	switch (e->sig) {
+	case SIGNAL_ENTRY: {
+		bytes_collected_counter = 0;
+		break;
+	}
+	case SIGNAL_BYTE_RECEIVED: {
+		uint8_t *crc_bytes = (uint8_t *)&temp_packet.crc;
+		if (bytes_collected_counter < 4) {
+			crc_bytes[bytes_collected_counter++] = *byte;
+			state = STATE_HANDLED;
+			if (bytes_collected_counter >= 4) {
+				bool valid =
+					bootloader_verify_crc(&temp_packet);
+				state = valid ? COMM_STATE_PACKET_READY :
+						COMM_STATE_PACKET_INVALID;
+			}
+		}
+		break;
+	}
 
-	printmsg("CRC Verify: %s (expected: 0x%08lX, received: 0x%08lX)\r\n",
-		 valid ? "PASS" : "FAIL",
-		 (unsigned long)bootloader_compute_crc(&temp_packet),
-		 (unsigned long)temp_packet.crc);
-
-	// Reset FSM for next packet
-	bytes_collected_counter = 0;
-	memset(&temp_packet, 0, sizeof(temp_packet));
-	COMM_FSM.state = comm_state_id;
-
-	return valid ? COMM_STATE_PACKET_READY : COMM_STATE_PACKET_INVALID;
+	default: {
+		state = STATE_IGNORED;
+		break;
+	}
+	}
+	return state;
 }
