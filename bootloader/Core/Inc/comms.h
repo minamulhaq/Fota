@@ -53,22 +53,25 @@ typedef struct Event {
 	Signal sig;
 } Event;
 
-typedef enum comms_state {
+typedef enum packet_status {
+	PACKET_NOT_READY,
+	PACKET_READY,
+	PACKET_VALID,
+	PACKET_INVALID,
+} packet_status_t;
+
+typedef enum status {
 	STATE_TRANSITION,
 	STATE_HANDLED,
 	STATE_IGNORED,
 	STATE_INIT,
-
-	COMM_STATE_PACKET_READY,
-	COMM_STATE_PACKET_INVALID
-
-} comms_state_t;
+} status_t;
 
 typedef struct comm_context comm_context_t;
 
 /* State function pointers */
-typedef comms_state_t (*comm_state_handler)(Event const *const e,
-					    uint8_t *byte);
+typedef status_t (*comm_state_handler)(Event const *const e, uint8_t *byte,
+				       packet_status_t *packet_status);
 
 struct comm_context {
 	comm_state_handler state;
@@ -79,12 +82,17 @@ struct comm_context {
 	(COMM_FSM.state = (target_), (state_))
 
 /* State function declarations */
-void comm_state_init(Event const *const e);
-comms_state_t comm_state_process_byte(uint8_t *byte);
-comms_state_t comm_state_id(Event const *const e, uint8_t *byte);
-comms_state_t comm_state_length(Event const *const e, uint8_t *byte);
-comms_state_t comm_state_payload(Event const *const e, uint8_t *byte);
-comms_state_t comm_state_crc(Event const *const e, uint8_t *byte);
+status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status);
 
+status_t comm_state_init(Event const *const e, uint8_t *byte,
+			 packet_status_t *packet_status);
+status_t comm_state_id(Event const *const e, uint8_t *byte,
+		       packet_status_t *packet_status);
+status_t comm_state_length(Event const *const e, uint8_t *byte,
+			   packet_status_t *packet_status);
+status_t comm_state_payload(Event const *const e, uint8_t *byte,
+			    packet_status_t *packet_status);
+status_t comm_state_crc(Event const *const e, uint8_t *byte,
+			packet_status_t *packet_status);
 
 #endif // _INC_BL_COMMAND_PACKET_H__

@@ -16,28 +16,42 @@ static Event const entryEvt = { SIGNAL_ENTRY };
 static Event const exitEvt = { SIGNAL_EXIT };
 static Event const byteReceivedEvent = { SIGNAL_BYTE_RECEIVED };
 
-void comm_state_init(Event const *const e)
-{
-	printmsg("Comms setup\r\n");
-	TRANSIT_TO(comm_state_id);
-	(*COMM_FSM.state)(&entryEvt, NULL);
-}
-comms_state_t comm_state_process_byte(uint8_t *byte)
+status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
 {
 	printmsg("Byte received: %x\r\n", *byte);
-	comms_state_t state;
+	status_t state;
 	comm_state_handler prev = COMM_FSM.state;
-	state = (*COMM_FSM.state)(&byteReceivedEvent, byte);
+	state = (*COMM_FSM.state)(&byteReceivedEvent, byte, packet_status);
 	if (state == STATE_TRANSITION) {
-		(prev)(&exitEvt, byte);
-		(COMM_FSM.state)(&entryEvt, byte);
+		(prev)(&exitEvt, byte, packet_status);
+		(COMM_FSM.state)(&entryEvt, byte, packet_status);
 	}
 
 	return state;
 }
-comms_state_t comm_state_id(Event const *const e, uint8_t *byte)
+
+status_t comm_state_init(Event const *const e, uint8_t *byte,
+			 packet_status_t *packet_status)
 {
-	comms_state_t state;
+	status_t state;
+	switch (e->sig) {
+	case SIGNAL_INIT:
+		printmsg("Comms setup\r\n");
+		TRANSIT_TO(comm_state_id);
+		(*COMM_FSM.state)(&entryEvt, NULL, packet_status);
+		state = STATE_HANDLED;
+		break;
+	default:
+		state = STATE_IGNORED;
+		break;
+	}
+	*packet_status = PACKET_NOT_READY;
+	return state;
+}
+status_t comm_state_id(Event const *const e, uint8_t *byte,
+		       packet_status_t *packet_status)
+{
+	status_t state;
 	switch (e->sig) {
 	case SIGNAL_ENTRY: {
 		bytes_collected_counter = 0;
@@ -58,11 +72,13 @@ comms_state_t comm_state_id(Event const *const e, uint8_t *byte)
 		break;
 	}
 	}
+	*packet_status = PACKET_NOT_READY;
 	return state;
 }
-comms_state_t comm_state_length(Event const *const e, uint8_t *byte)
+status_t comm_state_length(Event const *const e, uint8_t *byte,
+			   packet_status_t *packet_status)
 {
-	comms_state_t state;
+	status_t state;
 	switch (e->sig) {
 	case SIGNAL_BYTE_RECEIVED: {
 		if (*byte < 1) {
@@ -84,11 +100,13 @@ comms_state_t comm_state_length(Event const *const e, uint8_t *byte)
 		break;
 	}
 	}
+	*packet_status = PACKET_NOT_READY;
 	return state;
 }
-comms_state_t comm_state_payload(Event const *const e, uint8_t *byte)
+status_t comm_state_payload(Event const *const e, uint8_t *byte,
+			    packet_status_t *packet_status)
 {
-	comms_state_t state;
+	status_t state;
 	switch (e->sig) {
 	case SIGNAL_ENTRY: {
 		bytes_collected_counter = 0;
@@ -113,11 +131,13 @@ comms_state_t comm_state_payload(Event const *const e, uint8_t *byte)
 		break;
 	}
 	}
+	*packet_status = PACKET_NOT_READY;
 	return state;
 }
-comms_state_t comm_state_crc(Event const *const e, uint8_t *byte)
+status_t comm_state_crc(Event const *const e, uint8_t *byte,
+			packet_status_t *packet_status)
 {
-	comms_state_t state;
+	status_t state;
 	switch (e->sig) {
 	case SIGNAL_ENTRY: {
 		bytes_collected_counter = 0;
@@ -131,9 +151,10 @@ comms_state_t comm_state_crc(Event const *const e, uint8_t *byte)
 			if (bytes_collected_counter >= 4) {
 				bool valid =
 					bootloader_verify_crc(&temp_packet);
-				state = valid ? COMM_STATE_PACKET_READY :
-						COMM_STATE_PACKET_INVALID;
+				*packet_status = valid ? PACKET_READY :
+							 PACKET_INVALID;
 			}
+			state = STATE_HANDLED;
 		}
 		break;
 	}
@@ -145,4 +166,3 @@ comms_state_t comm_state_crc(Event const *const e, uint8_t *byte)
 	}
 	return state;
 }
-

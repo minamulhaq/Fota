@@ -1,4 +1,3 @@
-import sys
 import time
 from typing import Optional
 
@@ -18,7 +17,9 @@ class CmdLineSender:
 
     def run(self):
         try:
-            for n in self.nums:
+            for i, n in enumerate(self.nums):
+                print(f"Sending byte: {i + 1} / {len(self.nums) }")
+
                 assert self.port
                 assert isinstance(n, int)
 
@@ -47,5 +48,9 @@ class CmdLineSender:
 
 if __name__ == "__main__":
     nums = [0xB1, 0x0, 0x6, 0x8D, 0x7, 0xBC]
-
-    cmd = CmdLineSender(nums=nums)
+    cont = True
+    while cont:
+        cont = False
+        cmd = CmdLineSender(nums=nums)
+        x = input("Continue? [y/n]").lower()
+        cont = True if x == 'y' else False

@@ -57,23 +57,25 @@ void bootloader_jump_to_user_app(void)
 void run_bootloader_main_fsm(void)
 {
 	printmsg("run bootloader uart statemachine\r\n");
-	comm_state_init(NULL);
+	Event e = { SIGNAL_INIT };
+	packet_status_t pstatus = { PACKET_NOT_READY };
+	comm_state_init(&e, NULL, &pstatus);
 	while (1) {
 		if (bootlader_is_data_available()) {
 			uint8_t byte = bootloader_read_byte();
-			comms_state_t state = comm_state_process_byte(&byte);
-			switch (state) {
-			case COMM_STATE_PACKET_READY: {
-				printmsg("Successfully verified packet\r\n");
-				comm_state_init(NULL);
-				break;
-			}
-			case COMM_STATE_PACKET_INVALID:
-				printmsg("Packet invalid\r\n");
-				comm_state_init(NULL);
-				break;
+			status_t status =
+				comm_state_process_byte(&byte, &pstatus);
 
-			default:
+			switch (pstatus) {
+			case PACKET_READY:
+				if (pstatus == PACKET_READY) {
+					printmsg(
+						"Successfully verified packet\r\n");
+				} else if (pstatus == PACKET_INVALID) {
+					printmsg("Packet invalid\r\n");
+				}
+				comm_state_init(&e, NULL, &pstatus);
+
 				break;
 			}
 		}
