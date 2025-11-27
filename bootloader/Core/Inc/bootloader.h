@@ -52,7 +52,7 @@ void register_rx_it(void);
 
 void bootloader_send_byte(const uint8_t data);
 uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length);
-uint8_t bootloader_read_byte(void);
+void bootloader_read_byte(uint8_t* const byte);
 void bootloader_send_bytes(uint8_t *data, uint16_t length);
 bool bootlader_is_data_available(void);
 

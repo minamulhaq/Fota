@@ -11,18 +11,24 @@ static uint8_t bytes_collected_counter = 0;
 static comms_packet_t temp_packet = { 0 };
 static uint8_t payload_buffer;
 
+
+
+extern Event byte_received_event;
+extern Event entry_event;
+extern Event exit_event;
+
 static comm_context_t COMM_FSM = { 0 };
-static Event const byteReceivedEvent = { SIGNAL_BYTE_RECEIVED };
 
 status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
 {
 	printmsg("Byte received: %x\r\n", *byte);
 	status_t state;
 	comm_state_handler prev = COMM_FSM.state;
-	state = (*COMM_FSM.state)(&byteReceivedEvent, byte, packet_status);
+	assert (COMM_FSM.state != NULL);
+	state = (COMM_FSM.state)(&byte_received_event, byte, packet_status);
 	if (state == STATE_TRANSITION) {
-		(prev)(&exitEvt, byte, packet_status);
-		(COMM_FSM.state)(&entryEvt, byte, packet_status);
+		(prev)(&exit_event, byte, packet_status);
+		(COMM_FSM.state)(&entry_event, byte, packet_status);
 	}
 
 	return state;
@@ -35,7 +41,7 @@ status_t comm_state_init(Event const *const e, uint8_t *byte, packet_status_t *p
 	case SIGNAL_INIT:
 		printmsg("Comms setup\r\n");
 		TRANSIT_TO(comm_state_id);
-		(*COMM_FSM.state)(&entryEvt, NULL, packet_status);
+		(*COMM_FSM.state)(&entry_event, NULL, packet_status);
 		state = STATE_HANDLED;
 		break;
 	default:

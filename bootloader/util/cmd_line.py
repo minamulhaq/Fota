@@ -9,16 +9,14 @@ KEYWORD = "STM"
 
 
 class CmdLineSender:
-    def __init__(self, nums: list[int]) -> None:
+    def __init__(self) -> None:
         self.port: Optional[Serial] = None
-        self.nums = nums
         self.scan_com_ports()
-        self.run()
 
-    def run(self):
+    def run(self, nums: list[int]):
         try:
-            for i, n in enumerate(self.nums):
-                print(f"Sending byte: {i + 1} / {len(self.nums) }")
+            for i, n in enumerate(nums):
+                print(f"Sending byte: {i + 1} / {len(nums)}")
 
                 assert self.port
                 assert isinstance(n, int)
@@ -49,8 +47,9 @@ class CmdLineSender:
 if __name__ == "__main__":
     nums = [0xB1, 0x0, 0x6, 0x8D, 0x7, 0xBC]
     cont = True
+    cmd = CmdLineSender()
     while cont:
+        cmd.run(nums)
         cont = False
-        cmd = CmdLineSender(nums=nums)
         x = input("Continue? [y/n]").lower()
-        cont = True if x == 'y' else False
+        cont = True if x == "y" else False

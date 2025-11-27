@@ -35,6 +35,8 @@ set(MX_Application_Src
     ${CMAKE_SOURCE_DIR}/Core/Src/stm32l4xx_hal_msp.c
     ${CMAKE_SOURCE_DIR}/Core/Src/sysmem.c
     ${CMAKE_SOURCE_DIR}/Core/Src/bootloader.c
+    ${CMAKE_SOURCE_DIR}/Core/Src/bootloader_fsm.c
+    ${CMAKE_SOURCE_DIR}/Core/Src/sm_common.c
     ${CMAKE_SOURCE_DIR}/Core/Src/comms.c
     ${CMAKE_SOURCE_DIR}/Core/Src/bootloader_cmds.c
     ${CMAKE_SOURCE_DIR}/Core/Src/syscalls.c

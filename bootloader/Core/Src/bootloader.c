@@ -55,31 +55,39 @@ void bootloader_jump_to_user_app(void)
 	app_reset_hander();
 }
 
-static bootloader_fsm_handler handler = { 0 };
+static bootloader_fsm_t bootloader_fsm = { 0 };
+
+extern Event byte_received_event;
+extern Event entry_event;
+extern Event exit_event;
+extern Event init_event;
+
 void run_bootloader_main_fsm(void)
 {
 	printmsg("run bootloader uart statemachine\r\n");
-	Event e = { SIGNAL_INIT };
-	packet_status_t pstatus = { PACKET_NOT_READY };
-	comm_state_init(&e, NULL, &pstatus);
+
+	bootloader_fsm_ctr(&bootloader_fsm, (StateHandler)&bootloader_fsm_wait_for_packet);
+	Fsm_init((Fsm*)&bootloader_fsm, NULL);
+
 	while (1) {
 		if (bootlader_is_data_available()) {
-			uint8_t byte = bootloader_read_byte();
-			status_t status =
-				comm_state_process_byte(&byte, &pstatus);
+			bootloader_read_byte(&bootloader_fsm.uart_byte);
+			bootloader_fsm_dispatch(
+				&bootloader_fsm, &byte_received_event);
+			// comm_state_process_byte(&byte, &pstatus);
 
-			switch (pstatus) {
-			case PACKET_READY:
-				if (pstatus == PACKET_READY) {
-					printmsg(
-						"Successfully verified packet\r\n");
-				} else if (pstatus == PACKET_INVALID) {
-					printmsg("Packet invalid\r\n");
-				}
-				comm_state_init(&e, NULL, &pstatus);
+			// switch (pstatus) {
+			// case PACKET_READY:
+			// 	if (pstatus == PACKET_READY) {
+			// 		printmsg(
+			// 			"Successfully verified packet\r\n");
+			// 	} else if (pstatus == PACKET_INVALID) {
+			// 		printmsg("Packet invalid\r\n");
+			// 	}
+			// 	comm_state_init(&e, NULL, &pstatus);
 
-				break;
-			}
+			// 	break;
+			// }
 		}
 	}
 }
@@ -227,11 +235,9 @@ bool bootlader_is_data_available(void)
 	return !ring_buffer_empty(&rb);
 }
 
-uint8_t bootloader_read_byte(void)
+void bootloader_read_byte(uint8_t *const byte)
 {
-	uint8_t buf;
-	(void)bootloader_read_bytes(&buf, 1);
-	return buf;
+	bootloader_read_bytes(byte, 1);
 }
 uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length)
 {

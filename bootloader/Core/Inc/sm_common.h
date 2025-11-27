@@ -60,7 +60,23 @@ typedef struct Event {
 	Signal sig;
 } Event;
 
+typedef enum EventSignals {
+	SIGNAL_BYTE_RECEIVED = SIGNAL_USER,
+	SIGNAL_TIMEOUT,
+	/* ... */
+	SIGNAL_MAX_COUNT
+} EventSignals;
 
-static Event const entryEvt = { SIGNAL_ENTRY };
-static Event const exitEvt = { SIGNAL_EXIT };
+typedef struct Fsm Fsm;
+
+typedef status_t (*StateHandler)(Fsm *const me, Event const *const e);
+
+struct Fsm {
+	StateHandler state;
+};
+
+void Fsm_ctor(Fsm *const me, StateHandler initial);
+void Fsm_init(Fsm *const me, Event const *const e);
+void Fsm_dispatch(Fsm *const me, Event const *const e);
+
 #endif // _INC_SM_COMMON_H__

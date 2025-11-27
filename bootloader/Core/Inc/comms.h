@@ -3,13 +3,6 @@
 
 #include "sm_common.h"
 
-typedef enum EventSignals {
-	SIGNAL_BYTE_RECEIVED = SIGNAL_USER,
-	SIGNAL_TIMEOUT,
-	/* ... */
-	SIGNAL_MAX_COUNT
-} EventSignals;
-
 typedef struct comm_context comm_context_t;
 
 /* State function pointers */
