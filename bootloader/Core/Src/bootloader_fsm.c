@@ -1,5 +1,6 @@
 
 #include "bootloader_fsm.h"
+#include "bootloader.h"
 #include "msg_printer.h"
 
 extern Event byte_received_event;
@@ -36,10 +37,8 @@ status_t bootloader_fsm_wait_for_packet(bootloader_fsm_t *me,
 		}
 
 	} else if (me->packet_status == PACKET_READY) {
-		printmsg("bootloader packet ready\r\n");
-
 		me->packet_status = PACKET_NOT_READY;
-		status = FSM_TRANSIT_TO(bootloader_fsm_wait_for_packet);
+		status = FSM_TRANSIT_TO(bootloader_fsm_verify_packet_id);
 	}
 
 	return status;
@@ -52,11 +51,18 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 	switch (e->sig) {
 	case SIGNAL_ENTRY:
 		status = STATE_HANDLED;
-		comms_packet_t *l_packet = comm_get_last_packet();
+		comms_packet_t *last_packet = comm_get_last_packet();
+		bootloader_cmd_t *handle = get_command_handle(last_packet);
+		if (handle == NULL) {
+		} else {
+			comms_packet_t response_packet = { 0 };
+			handle->process(last_packet, &response_packet);
+			bootlader_send_response_packet(&response_packet);
+		}
 		break;
 
 	default:
-		STATE_IGNORED;
+		status = STATE_IGNORED;
 		break;
 	}
 	return status;

@@ -6,6 +6,7 @@ State machine setup to receive command packets
 #include "common_defines.h"
 #include "comms.h"
 #include "bootloader.h"
+#include "memory.h"
 
 static uint8_t bytes_collected_counter = 0;
 static comms_packet_t temp_packet = { 0 };
@@ -20,7 +21,6 @@ static comm_context_t COMM_FSM = { 0 };
 
 status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
 {
-	printmsg("Byte received: %x\r\n", *byte);
 	status_t state;
 	comm_state_handler prev = COMM_FSM.state;
 	assert(COMM_FSM.state != NULL);
@@ -39,7 +39,6 @@ status_t comm_state_init(Event const *const e, uint8_t *byte,
 	status_t state;
 	switch (e->sig) {
 	case SIGNAL_INIT:
-		printmsg("Comms setup\r\n");
 		TRANSIT_TO(comm_state_id);
 		(*COMM_FSM.state)(&entry_event, NULL, packet_status);
 		state = STATE_HANDLED;
@@ -173,7 +172,7 @@ status_t comm_state_crc(Event const *const e, uint8_t *byte,
 	return state;
 }
 
-packet_status_t *comm_get_last_packet(void)
+comms_packet_t *comm_get_last_packet(void)
 {
 	return &last_packet;
 }

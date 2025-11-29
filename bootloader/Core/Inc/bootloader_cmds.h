@@ -1,25 +1,29 @@
 #pragma once
+#include "sm_common.h"
+#include "bootloader.h"
 
-#include "stdint.h"
+typedef void (*process_packet)(comms_packet_t *const last_packet,
+			       comms_packet_t *const response_packet);
 
 typedef enum {
-	B_CMD_GET_VERSION   = 0xB1,
-	B_CMD_GET_HELP      = 0xB2,
-	B_CMD_GET_CID       = 0xB3,
-	B_CMD_GET_RDP_LVL   = 0xB4,
-	B_CMD_JMP_TO_ADDR   = 0xB5,
-	B_CMD_ERASE_FLASH   = 0xB6
-} bootloader_cmd_id_t;
+	B_ACK = 0xE0,
+	B_NACK = 0xE1,
+	B_CMD_GET_VERSION = 0xB1,
+	B_CMD_GET_HELP = 0xB2,
+	B_CMD_GET_CID = 0xB3,
+	B_CMD_GET_RDP_LVL = 0xB4,
+	B_CMD_JMP_TO_ADDR = 0xB5,
+	B_CMD_ERASE_FLASH = 0xB6,
+} bootloader_packet_id_t;
+
+typedef struct bootloader_cmd {
+	uint8_t command_id;
+	process_packet process;
+} bootloader_cmd_t;
+
+bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet);
+
 /*
-typedef enum {
-    B_ACK = 0x0A,
-    B_NACK = 0x0B
-} BootloaderResponseCode;
-
-typedef enum {
-    VERIFY_CRC_SUCCESS = 0x00,
-    VERIFY_CRC_FAILED = 0x01,
-} CRC_VERIFICATION;
 
 typedef uint8_t CommandID;
 typedef struct bootloader_cmd bootloader_cmd;

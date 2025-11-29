@@ -22,8 +22,6 @@ uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
 static int8_t elapsed_time = 3;
 void bootloader_jump_to_user_app(void)
 {
-	printmsg("bootloader_jump_to_user_app\r\n");
-
 	/*
      * 1. Configure the MSP by reading the value from the base address of the application
      */
@@ -35,7 +33,6 @@ void bootloader_jump_to_user_app(void)
 
 	uint32_t msp_value =
 		*(volatile uint32_t *)FLASH_SECTOR_APP_START_ADDRESS;
-	printmsg("MSP value: %#x\r\n", msp_value);
 
 	__set_MSP(msp_value);
 
@@ -51,7 +48,6 @@ void bootloader_jump_to_user_app(void)
 	/*
      * 3. Jump to application reset handler
      */
-	printmsg("Jumping to user application\r\n");
 	app_reset_hander();
 }
 
@@ -64,30 +60,15 @@ extern Event init_event;
 
 void run_bootloader_main_fsm(void)
 {
-	printmsg("run bootloader uart statemachine\r\n");
-
-	bootloader_fsm_ctr(&bootloader_fsm, (StateHandler)&bootloader_fsm_wait_for_packet);
-	Fsm_init((Fsm*)&bootloader_fsm, NULL);
+	bootloader_fsm_ctr(&bootloader_fsm,
+			   (StateHandler)&bootloader_fsm_wait_for_packet);
+	Fsm_init((Fsm *)&bootloader_fsm, NULL);
 
 	while (1) {
 		if (bootlader_is_data_available()) {
 			bootloader_read_byte(&bootloader_fsm.uart_byte);
-			bootloader_fsm_dispatch(
-				&bootloader_fsm, &byte_received_event);
-			// comm_state_process_byte(&byte, &pstatus);
-
-			// switch (pstatus) {
-			// case PACKET_READY:
-			// 	if (pstatus == PACKET_READY) {
-			// 		printmsg(
-			// 			"Successfully verified packet\r\n");
-			// 	} else if (pstatus == PACKET_INVALID) {
-			// 		printmsg("Packet invalid\r\n");
-			// 	}
-			// 	comm_state_init(&e, NULL, &pstatus);
-
-			// 	break;
-			// }
+			bootloader_fsm_dispatch(&bootloader_fsm,
+						&byte_received_event);
 		}
 	}
 }
@@ -109,8 +90,8 @@ void bootloader_decide(void)
 bool bootloader_verify_crc(comms_packet_t *packet)
 {
 	uint32_t uwCRCValue = bootloader_compute_crc(packet);
-	printmsg("uwCRCValue = 0x%08lX\r\n", (unsigned long)uwCRCValue);
-	printmsg("packet->crc = 0x%08lX\r\n", (unsigned long)packet->crc);
+	// printmsg("uwCRCValue = 0x%08lX\r\n", (unsigned long)uwCRCValue);
+	// printmsg("packet->crc = 0x%08lX\r\n", (unsigned long)packet->crc);
 
 	if (uwCRCValue == packet->crc) {
 		return true;
@@ -166,8 +147,6 @@ void bootloader_check_elapsed_time(void)
 {
 	if (elapsed_time > 0) {
 		elapsed_time--;
-		printmsg("Time to jump to app: %d | press button\r\n",
-			 elapsed_time);
 	}
 	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 }
@@ -203,11 +182,9 @@ void bootloader_usart_rx_cb(UART_HandleTypeDef *huart)
 void bootloader_usart_error_cb(UART_HandleTypeDef *huart)
 {
 	if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
-		printmsg("UART Error: Overrun!\r\n");
 	}
 
 	if (huart->ErrorCode & HAL_UART_ERROR_FE) {
-		printmsg("UART Error: Framing!\r\n");
 	}
 
 	// The HAL's internal IRQ handler clears the error flags and attempts
@@ -251,4 +228,30 @@ uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length)
 		}
 	}
 	return length;
+}
+
+void bootlader_send_response_packet(comms_packet_t const *packet)
+{
+	// send command id
+	HAL_UART_Transmit(&huart2, (uint8_t *)&packet->command_id,
+			  sizeof(packet->command_id), HAL_MAX_DELAY);
+
+	// send length
+	HAL_UART_Transmit(&huart2, (uint8_t *)&packet->length,
+			  sizeof(packet->length), HAL_MAX_DELAY);
+
+	// send payload only if length > 0
+	if (packet->length > 0) {
+		// safety: never transmit beyond MAX_PAYLOAD_SIZE
+		uint8_t len = packet->length <= MAX_PAYLOAD_SIZE ?
+				      packet->length :
+				      MAX_PAYLOAD_SIZE;
+
+		HAL_UART_Transmit(&huart2, (uint8_t *)packet->payload, len,
+				  HAL_MAX_DELAY);
+	}
+
+	// send CRC (4 bytes)
+	HAL_UART_Transmit(&huart2, (uint8_t *)&packet->crc, sizeof(packet->crc),
+			  HAL_MAX_DELAY);
 }

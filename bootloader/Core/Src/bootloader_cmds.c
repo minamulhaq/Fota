@@ -6,6 +6,35 @@
 #include "usart.h"
 #include "stdlib.h"
 
+static void cmd_get_version_process(comms_packet_t *const last_packet,
+				    comms_packet_t *const response_packet)
+{
+	response_packet->command_id = B_ACK;
+	response_packet->length = sizeof(bootloader_version);
+	memcpy(response_packet->payload, &bootloader_version,
+	       sizeof(bootloader_version));
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
+bootloader_cmd_t CMD_GET_VERSION = { .command_id = B_CMD_GET_VERSION,
+				     .process = cmd_get_version_process };
+
+bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet)
+{
+	bootloader_cmd_t *cmd;
+	switch (packet->command_id) {
+	case B_CMD_GET_VERSION:
+		cmd = &CMD_GET_VERSION;
+		break;
+
+	default:
+		cmd = NULL;
+		break;
+	}
+	return cmd;
+}
+
 /*
 void bootloader_send_command_response(CRC_VERIFICATION v, bootloader_cmd *cmd)
 {

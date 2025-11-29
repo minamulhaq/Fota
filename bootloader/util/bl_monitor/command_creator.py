@@ -1,9 +1,7 @@
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-
-from serial import Serial
+from typing import Optional
 
 
 class CommandIDs(Enum):
@@ -48,8 +46,7 @@ class Command(ABC):
     @abstractmethod
     def packet(self) -> Packet: ...
 
-
-    def validate_id(self, id: int)-> bool:
+    def validate_id(self, id: int) -> bool:
         return self.packet.id == id
 
     @property
@@ -84,6 +81,27 @@ class Command(ABC):
     def len_crc(self) -> int:
         return 4
 
+    @abstractmethod
+    def handle_response(self, response_packet: Packet) -> dict:
+        """
+        Handle the validated response packet.
+        Each command implements its own response handling logic.
+
+        Args:
+            response_packet: Validated packet with correct CRC
+
+        Returns:
+            dict: Parsed response data specific to this command
+        """
+        ...
+
+    def _get_id_name(self, packet_id: int) -> str:
+        """Get human-readable name for packet ID"""
+        for cmd_id in CommandIDs:
+            if cmd_id.value == packet_id:
+                return cmd_id.name
+        return "UNKNOWN"
+
     @property
     def cmd(self) -> bytearray:
         """Generate raw byte array to send: id + length + payload + crc (little-endian)"""
@@ -96,10 +114,123 @@ class Command(ABC):
         raw.extend(pkt.crc32.to_bytes(4, byteorder="little"))
         return raw
 
+    def receive_response_packet(self, raw_data: bytes) -> Optional[Packet]:
+        """
+        Generic response packet receiver and validator.
+        Parses raw bytes and validates CRC.
+
+        Packet structure:
+        - Byte 0: ID (ACK/NACK)
+        - Byte 1: Payload length
+        - Bytes 2 to (2+length-1): Payload (if length > 0)
+        - Last 4 bytes: CRC32 (little-endian)
+
+        Args:
+            raw_data: Raw bytes received from bootloader
+
+        Returns:
+            Packet object if valid, None if invalid
+        """
+        print(f"\n{'=' * 60}")
+        print(f"RECEIVING RESPONSE PACKET")
+        print(f"{'=' * 60}")
+        print(
+            f"[RX] Raw data ({len(raw_data)} bytes): {' '.join([f'{b:02X}' for b in raw_data])}"
+        )
+
+        # Minimum packet: ID(1) + Length(1) + CRC(4) = 6 bytes
+        if len(raw_data) < 6:
+            print(
+                f"[RX] ERROR: Insufficient data (minimum 6 bytes, got {len(raw_data)})"
+            )
+            return None
+
+        # Step 1: Parse ID (byte 0)
+        offset = 0
+        packet_id = raw_data[offset]
+        offset += 1
+
+        id_name = self._get_id_name(packet_id)
+        print(f"[RX] Step 1 - Parse ID:")
+        print(f"     Byte[0] = 0x{packet_id:02X} ({id_name})")
+
+        # Step 2: Parse length (byte 1)
+        payload_length = raw_data[offset]
+        offset += 1
+
+        print(f"[RX] Step 2 - Parse Length:")
+        print(f"     Byte[1] = {payload_length} bytes")
+
+        # Validate total packet size
+        expected_size = 1 + 1 + payload_length + 4  # ID + Len + Payload + CRC
+        if len(raw_data) < expected_size:
+            print(f"[RX] ERROR: Incomplete packet")
+            print(f"     Expected: {expected_size} bytes")
+            print(f"     Received: {len(raw_data)} bytes")
+            return None
+
+        # Step 3: Parse payload (if length > 0)
+        payload = []
+        if payload_length > 0:
+            payload = list(raw_data[offset : offset + payload_length])
+            print(f"[RX] Step 3 - Parse Payload:")
+            print(
+                f"     Bytes[2:{2 + payload_length}] = {' '.join([f'{b:02X}' for b in payload])}"
+            )
+            offset += payload_length
+        else:
+            print(f"[RX] Step 3 - Parse Payload:")
+            print(f"     No payload (length = 0)")
+
+        # Step 4: Parse CRC32 (last 4 bytes, little-endian)
+        crc_bytes = raw_data[offset : offset + 4]
+        received_crc = int.from_bytes(crc_bytes, byteorder="little")
+
+        print(f"[RX] Step 4 - Parse CRC32:")
+        print(
+            f"     Bytes[{offset}:{offset + 4}] = {' '.join([f'{b:02X}' for b in crc_bytes])} (LE)"
+        )
+        print(f"     CRC32 value = 0x{received_crc:08X}")
+
+        # Step 5: Verify CRC
+        # CRC is computed over: [ID][Length][Payload]
+        crc_data = bytearray()
+        crc_data.append(packet_id)
+        crc_data.append(payload_length)
+        if payload_length > 0:
+            crc_data.extend(payload)
+
+        computed_crc = self.crc32_stm32_style(crc_data)
+
+        print(f"[RX] Step 5 - Verify CRC:")
+        print(f"     CRC computed over: {' '.join([f'{b:02X}' for b in crc_data])}")
+        print(f"     Computed CRC = 0x{computed_crc:08X}")
+        print(f"     Received CRC = 0x{received_crc:08X}")
+
+        if computed_crc != received_crc:
+            print(f"[RX] ERROR: CRC MISMATCH!")
+            print(f"     ✗ Packet validation FAILED")
+            return None
+
+        print(f"     ✓ CRC Valid")
+        print(f"[RX] ✓ Packet validation SUCCESS")
+        print(f"{'=' * 60}\n")
+
+        # Create and return validated packet
+        packet = Packet(
+            id=packet_id,
+            length=payload_length,
+            payload=payload if payload else None,
+            crc32=received_crc,
+        )
+
+        return packet
+
 
 # ============================================================================
 # COMMAND IMPLEMENTATIONS
 # ============================================================================
+
 
 class CommandGetBootloaderVersion(Command):
     @property
@@ -113,6 +244,105 @@ class CommandGetBootloaderVersion(Command):
             description=f"ID: {CommandIDs.B_CMD_GET_VERSION.value} | {CommandIDs.B_CMD_GET_VERSION.value:#04X} | Get Bootloader Version",
             nemonic="CommandGetBootloaderVersion",
         )
+
+    def handle_response(self, response_packet: Packet) -> dict:
+        """
+        Handle GET_VERSION response.
+
+        Expected response:
+        - ACK (0xE0) with 3-byte payload: [major, minor, patch]
+        - NACK (0xE1) with error code
+
+        Args:
+            response_packet: Validated packet from bootloader
+
+        Returns:
+            dict: {
+                'success': bool,
+                'version': str (if success),
+                'major': int (if success),
+                'minor': int (if success),
+                'patch': int (if success),
+                'error_code': int (if NACK)
+            }
+        """
+        print(f"{'=' * 60}")
+        print(f"HANDLING GET_VERSION RESPONSE")
+        print(f"{'=' * 60}")
+
+        result = {}
+
+        # Check if ACK
+        if response_packet.id == CommandIDs.B_ACK.value:
+            print(f"[HANDLER] Received: ACK")
+
+            # Validate payload
+            if response_packet.length != 3:
+                print(
+                    f"[HANDLER] ERROR: Expected 3-byte payload, got {response_packet.length}"
+                )
+                result["success"] = False
+                result["error"] = f"Invalid payload length: {response_packet.length}"
+                return result
+
+            if not response_packet.payload or len(response_packet.payload) < 3:
+                print(f"[HANDLER] ERROR: Payload missing or incomplete")
+                result["success"] = False
+                result["error"] = "Payload missing"
+                return result
+
+            # Parse version
+            major = response_packet.payload[0]
+            minor = response_packet.payload[1]
+            patch = response_packet.payload[2]
+
+            version_string = f"{major}.{minor}.{patch}"
+
+            print(f"[HANDLER] Version parsed:")
+            print(f"          Major: {major}")
+            print(f"          Minor: {minor}")
+            print(f"          Patch: {patch}")
+            print(f"          Version: {version_string}")
+
+            result["success"] = True
+            result["version"] = version_string
+            result["major"] = major
+            result["minor"] = minor
+            result["patch"] = patch
+
+        # Check if NACK
+        elif response_packet.id == CommandIDs.B_NACK.value:
+            print(f"[HANDLER] Received: NACK")
+
+            error_code = response_packet.payload[0] if response_packet.payload else 0xFF
+
+            error_names = {
+                0x00: "SUCCESS (unexpected in NACK)",
+                0x01: "INVALID_CMD",
+                0x02: "INVALID_PARAMS",
+                0x03: "EXECUTION_FAILED",
+                0x04: "FLASH_ERROR",
+                0x05: "ADDRESS_ERROR",
+            }
+
+            error_desc = error_names.get(error_code, "UNKNOWN_ERROR")
+
+            print(f"[HANDLER] Error code: 0x{error_code:02X} ({error_desc})")
+
+            result["success"] = False
+            result["error_code"] = error_code
+            result["error_desc"] = error_desc
+
+        else:
+            print(
+                f"[HANDLER] ERROR: Unexpected response ID: 0x{response_packet.id:02X}"
+            )
+            result["success"] = False
+            result["error"] = f"Unexpected response ID: 0x{response_packet.id:02X}"
+
+        print(f"{'=' * 60}\n")
+
+        return result
 
 
 class CommandGetHelp(Command):
@@ -190,11 +420,15 @@ class CommandEraseFlash(Command):
             payload = [len(self.sectors)] + self.sectors
             length = len(payload)
 
-        return Packet(id=CommandIDs.B_CMD_ERASE_FLASH.value, length=length, payload=payload)
+        return Packet(
+            id=CommandIDs.B_CMD_ERASE_FLASH.value, length=length, payload=payload
+        )
 
     @property
     def info(self) -> CommandInfo:
-        erase_type = "Mass Erase" if self.mass_erase else f"Erase Sectors: {self.sectors}"
+        erase_type = (
+            "Mass Erase" if self.mass_erase else f"Erase Sectors: {self.sectors}"
+        )
         return CommandInfo(
             id=CommandIDs.B_CMD_ERASE_FLASH.value,
             description=f"ID: {CommandIDs.B_CMD_ERASE_FLASH.value} | {CommandIDs.B_CMD_ERASE_FLASH.value:#04X} | {erase_type}",

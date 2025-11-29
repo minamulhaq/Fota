@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "bootloader_cmds.h"
+#include "bootloader_fsm.h"
+#include "sm_common.h"
 #include "usart.h"
 #include "comms.h"
 
@@ -21,8 +23,6 @@ typedef enum {
 
 } bootloader_state;
 
-
-
 extern uint8_t bootloader_version[3];
 
 typedef struct BootloaderVersion {
@@ -33,13 +33,12 @@ typedef struct BootloaderVersion {
 
 void bootloader_check_elapsed_time(void);
 
-
 extern uint8_t bootloader_receive_buffer[];
 void bootloader_jump_to_user_app(void);
 void run_bootloader_main_fsm(void);
 
-bool bootloader_verify_crc(comms_packet_t* packet);
-uint32_t bootloader_compute_crc(const comms_packet_t*const packet);
+bool bootloader_verify_crc(comms_packet_t *packet);
+uint32_t bootloader_compute_crc(const comms_packet_t *const packet);
 
 void bootloader_decide(void);
 
@@ -52,8 +51,9 @@ void register_rx_it(void);
 
 void bootloader_send_byte(const uint8_t data);
 uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length);
-void bootloader_read_byte(uint8_t* const byte);
+void bootloader_read_byte(uint8_t *const byte);
 void bootloader_send_bytes(uint8_t *data, uint16_t length);
 bool bootlader_is_data_available(void);
+void bootlader_send_response_packet(comms_packet_t const *packet);
 
 #endif // INC_BOOTLOADER_H__
