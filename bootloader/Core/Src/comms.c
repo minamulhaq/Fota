@@ -9,9 +9,8 @@ State machine setup to receive command packets
 
 static uint8_t bytes_collected_counter = 0;
 static comms_packet_t temp_packet = { 0 };
+static comms_packet_t last_packet = { 0 };
 static uint8_t payload_buffer;
-
-
 
 extern Event byte_received_event;
 extern Event entry_event;
@@ -24,7 +23,7 @@ status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
 	printmsg("Byte received: %x\r\n", *byte);
 	status_t state;
 	comm_state_handler prev = COMM_FSM.state;
-	assert (COMM_FSM.state != NULL);
+	assert(COMM_FSM.state != NULL);
 	state = (COMM_FSM.state)(&byte_received_event, byte, packet_status);
 	if (state == STATE_TRANSITION) {
 		(prev)(&exit_event, byte, packet_status);
@@ -34,7 +33,8 @@ status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
 	return state;
 }
 
-status_t comm_state_init(Event const *const e, uint8_t *byte, packet_status_t *packet_status)
+status_t comm_state_init(Event const *const e, uint8_t *byte,
+			 packet_status_t *packet_status)
 {
 	status_t state;
 	switch (e->sig) {
@@ -167,5 +167,13 @@ status_t comm_state_crc(Event const *const e, uint8_t *byte,
 		break;
 	}
 	}
+	if (*packet_status == PACKET_READY) {
+		memcpy(&last_packet, &temp_packet, sizeof(temp_packet));
+	}
 	return state;
+}
+
+packet_status_t *comm_get_last_packet(void)
+{
+	return &last_packet;
 }

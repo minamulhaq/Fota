@@ -21,6 +21,9 @@ status_t bootloader_fsm_dispatch(bootloader_fsm_t *me, Event const *const e);
 status_t bootloader_fsm_wait_for_packet(bootloader_fsm_t *me,
 					Event const *const e);
 
+status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
+					Event const *const e);
+
 #define FSM_TRANSIT_TO(target_) \
 	(((Fsm *)me)->state = (StateHandler)(target_), STATE_TRANSITION)
 

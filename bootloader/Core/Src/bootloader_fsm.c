@@ -40,8 +40,24 @@ status_t bootloader_fsm_wait_for_packet(bootloader_fsm_t *me,
 
 		me->packet_status = PACKET_NOT_READY;
 		status = FSM_TRANSIT_TO(bootloader_fsm_wait_for_packet);
-		FSM_TRANSIT_TO(bootloader_fsm_wait_for_packet);
 	}
 
+	return status;
+}
+
+status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
+					 Event const *const e)
+{
+	status_t status;
+	switch (e->sig) {
+	case SIGNAL_ENTRY:
+		status = STATE_HANDLED;
+		comms_packet_t *l_packet = comm_get_last_packet();
+		break;
+
+	default:
+		STATE_IGNORED;
+		break;
+	}
 	return status;
 }

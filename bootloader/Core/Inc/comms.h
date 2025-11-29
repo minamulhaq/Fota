@@ -31,4 +31,6 @@ status_t comm_state_payload(Event const *const e, uint8_t *byte,
 status_t comm_state_crc(Event const *const e, uint8_t *byte,
 			packet_status_t *packet_status);
 
+packet_status_t *comm_get_last_packet(void);
+
 #endif // _INC_BL_COMMAND_PACKET_H__
