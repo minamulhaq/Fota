@@ -3,6 +3,7 @@ from typing import Optional
 
 from bl_monitor import (
     Command,
+    CommandRetransmit,
     CommandEraseFlash,
     CommandGetBootloaderVersion,
     CommandGetChipID,
@@ -14,6 +15,7 @@ from bl_monitor import (
 from bl_monitor.command_creator import ResponseType
 from serial import Serial
 from serial.tools import list_ports
+
 
 # ============================================================================
 # SERIAL MONITOR
@@ -28,10 +30,8 @@ class SerialMonitor:
     def __init__(self):
         self.port: Optional[Serial] = None
         self.supported_commands: dict[int, Command] = {
-            1: CommandGetBootloaderVersion(),
-            # CommandGetHelp(),
-            # CommandGetChipID(),
-            # CommandGetRDPLevel(),
+            1: CommandRetransmit(),
+            2: CommandGetBootloaderVersion(),
         }
 
     def scan_com_ports(self) -> Optional[Serial]:
@@ -41,7 +41,7 @@ class SerialMonitor:
         available_ports = list(list_ports.comports())
 
         if not available_ports:
-            print(f"[SCAN] No COM ports found on system")
+            print("[SCAN] No COM ports found on system")
             return None
 
         print(f"[SCAN] Found {len(available_ports)} COM port(s):")
@@ -109,7 +109,7 @@ class SerialMonitor:
         assert self.port
         # Step 1: Display command info
         print(f"\n{'=' * 70}")
-        print(f"EXECUTING COMMAND")
+        print("EXECUTING COMMAND")
         print(f"{'=' * 70}")
         print(cmd.info)
         print()
@@ -117,7 +117,7 @@ class SerialMonitor:
         # Step 2: Get command bytes
         raw_cmd = cmd.cmd
 
-        print(f"[TX] Command Packet Breakdown:")
+        print("[TX] Command Packet Breakdown:")
         print(f"     Total bytes: {len(raw_cmd)}")
         print(f"     ID:          0x{raw_cmd[0]:02X}")
         print(f"     Length:      {raw_cmd[1]}")
@@ -126,7 +126,7 @@ class SerialMonitor:
             payload_bytes = raw_cmd[2 : 2 + raw_cmd[1]]
             print(f"     Payload:     {' '.join([f'{b:02X}' for b in payload_bytes])}")
         else:
-            print(f"     Payload:     None")
+            print("     Payload:     None")
 
         crc_bytes = raw_cmd[-4:]
         crc_value = int.from_bytes(crc_bytes, byteorder="little")
@@ -146,44 +146,76 @@ class SerialMonitor:
         # Step 4: Receive response byte-by-byte
         print(f"\n[RX] Receiving response packet...")
 
-        def read_byte_with_timeout(timeout_sec=2.0) -> Optional[int]:
-            """Wait for single byte with timeout"""
-            start_time = time.time()
-            while (time.time() - start_time) < timeout_sec:
-                assert self.port
-                if self.port.in_waiting > 0:
-                    byte = self.port.read(1)
-                    return byte[0] if byte else None
-                time.sleep(0.01)  # Small delay to prevent busy-waiting
+        response_buffer = self.receive_raw_packet(cmd=cmd)
+        assert response_buffer
+        response = self.validate_packet(response_buffer=response_buffer, cmd=cmd)
+        return response
+
+    def validate_packet(self, response_buffer: bytearray, cmd: Command):
+        validated_packet: Packet | None = cmd.receive_response_packet(
+            bytes(response_buffer)
+        )
+
+        if not validated_packet:
+            x = input(
+                "\n[ERROR] Packet validation failed (CRC mismatch or malformed), request retransmit? [y]"
+            )
+            if x == "y":
+                c = CommandRetransmit()
+                self.send_command(c)
+
+            return None
+        elif validated_packet.id == ResponseType.B_RETRANSMIT.value:
+            print("\n[RETRANSMIT] Last packet CRC Failed, retransmit")
             return None
 
-        response_buffer = bytearray()
+        parsed_result = cmd.handle_response(validated_packet)
 
-        print(f"[RX] Step 1 - Reading ID byte...")
-        packet_id = read_byte_with_timeout(TIMEOUT)
+        print(f"{'=' * 70}")
+        print("COMMAND EXECUTION COMPLETE")
+        print(f"{'=' * 70}\n")
+
+        return parsed_result
+
+    def read_byte_with_timeout(self, timeout_sec=2.0) -> Optional[int]:
+        """Wait for single byte with timeout"""
+        start_time = time.time()
+        while (time.time() - start_time) < timeout_sec:
+            assert self.port
+            if self.port.in_waiting > 0:
+                byte = self.port.read(1)
+                return byte[0] if byte else None
+            time.sleep(0.01)  # Small delay to prevent busy-waiting
+        return None
+
+    def receive_raw_packet(self, cmd: Command):
+        response_buffer = bytearray([])
+
+        print("[RX] - Reading ID byte...")
+        packet_id = self.read_byte_with_timeout(TIMEOUT)
 
         if packet_id is None:
-            print(f"[RX] ✗ Timeout waiting for ID byte")
+            print("[RX] ✗ Timeout waiting for ID byte")
             return None
 
         response_buffer.append(packet_id)
         print(f"[RX]   ID = 0x{packet_id:02X} ({cmd._get_id_name(packet_id)})")
 
-        print(f"[RX] Step 2 - Reading Length byte...")
-        payload_length = read_byte_with_timeout(TIMEOUT)
+        print("[RX] - Reading Length byte...")
+        payload_length = self.read_byte_with_timeout(TIMEOUT)
 
         if payload_length is None:
-            print(f"[RX] ✗ Timeout waiting for Length byte")
+            print("[RX] ✗ Timeout waiting for Length byte")
             return None
 
         response_buffer.append(payload_length)
         print(f"[RX]   Length = {payload_length} bytes")
 
         if payload_length > 0:
-            print(f"[RX] Step 3 - Reading {payload_length} payload bytes...")
+            print(f"[RX] - Reading {payload_length} payload bytes...")
 
             for i in range(payload_length):
-                payload_byte = read_byte_with_timeout(TIMEOUT)
+                payload_byte = self.read_byte_with_timeout(TIMEOUT)
 
                 if payload_byte is None:
                     print(
@@ -199,12 +231,12 @@ class SerialMonitor:
                         f"[RX]   Payload [{i + 1}/{payload_length}]: {payload_so_far}"
                     )
         else:
-            print(f"[RX] Step 3 - No payload (length = 0)")
+            print("[RX] - No payload (length = 0)")
 
-        print(f"[RX] Step 4 - Reading 4 CRC32 bytes...")
+        print("[RX] - Reading 4 CRC32 bytes...")
 
         for i in range(4):
-            crc_byte = read_byte_with_timeout(TIMEOUT)
+            crc_byte = self.read_byte_with_timeout(TIMEOUT)
 
             if crc_byte is None:
                 print(f"[RX] ✗ Timeout waiting for CRC byte {i + 1}/4")
@@ -220,31 +252,12 @@ class SerialMonitor:
 
         print(f"\n[RX] ✓ Complete packet received ({len(response_buffer)} bytes)")
         print(f"[RX] Raw data: {' '.join([f'{b:02X}' for b in response_buffer])}")
-
-        validated_packet: Packet | None = cmd.receive_response_packet(
-            bytes(response_buffer)
-        )
-
-        # print(f"\n\n\nPACKET ID IS: {ResponseType.packet_type(validated_packet.id)}\n\n\n")
-        if not validated_packet:
-            print(f"\n[ERROR] Packet validation failed (CRC mismatch or malformed)")
-            return None
-        elif validated_packet.id == ResponseType.B_RETRANSMIT.value:
-            print(f"\n[RETRANSMIT] Last packet CRC Failed, retransmit")
-            return None
-
-        parsed_result = cmd.handle_response(validated_packet)
-
-        print(f"{'=' * 70}")
-        print(f"COMMAND EXECUTION COMPLETE")
-        print(f"{'=' * 70}\n")
-
-        return parsed_result
+        return response_buffer
 
     def run(self):
         """Main interactive loop"""
         print(f"\n{'=' * 70}")
-        print(f"           STM32 BOOTLOADER COMMUNICATION MONITOR")
+        print("           STM32 BOOTLOADER COMMUNICATION MONITOR")
         print(f"{'=' * 70}\n")
 
         while True:
@@ -263,9 +276,7 @@ class SerialMonitor:
                 print(f"{'=' * 70}")
                 for idx, cmd in enumerate(self.supported_commands.values(), 1):
                     print(f"  {idx}. {cmd.info.description}")
-                print(f"  {len(self.supported_commands) + 1}. Jump to Address (custom)")
-                print(f"  {len(self.supported_commands) + 2}. Erase Flash (custom)")
-                print(f"  0. Exit")
+                print("  0. Exit")
                 print(f"{'=' * 70}")
 
                 choice = input("\nEnter choice: ").strip()

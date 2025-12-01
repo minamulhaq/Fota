@@ -2,7 +2,7 @@
 #include "sm_common.h"
 #include "bootloader.h"
 
-typedef void (*process_packet)(comms_packet_t *const last_packet,
+typedef void (*process_packet)(comms_packet_t *const last_received_packet,
 			       comms_packet_t *const response_packet);
 
 typedef enum {
@@ -13,6 +13,7 @@ typedef enum {
 } bootloader_response_type_t;
 
 typedef enum {
+	B_CMD_RETRANSMIT = 0xB0,
 	B_CMD_GET_VERSION = 0xB1,
 	B_CMD_GET_HELP = 0xB2,
 	B_CMD_GET_CID = 0xB3,
@@ -27,7 +28,7 @@ typedef struct bootloader_cmd {
 } bootloader_cmd_t;
 
 bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet);
-bootloader_cmd_t *get_retransmit_response_handle(void);
+bootloader_cmd_t *cmd_send_retransmit_last_cmd(void);
 
 /*
 

@@ -18,6 +18,7 @@
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
+static comms_packet_t last_sent_packet = { 0 };
 
 static int8_t elapsed_time = 3;
 void bootloader_jump_to_user_app(void)
@@ -253,6 +254,7 @@ uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length)
 	return length;
 }
 
+static volatile int x = 0;
 void bootlader_send_response_packet(comms_packet_t const *packet)
 {
 	// send command id
@@ -274,7 +276,14 @@ void bootlader_send_response_packet(comms_packet_t const *packet)
 				  HAL_MAX_DELAY);
 	}
 
-	// send CRC (4 bytes)
 	HAL_UART_Transmit(&huart2, (uint8_t *)&packet->crc, sizeof(packet->crc),
 			  HAL_MAX_DELAY);
+
+	memcpy(&last_sent_packet, packet, sizeof(comms_packet_t));
+	return;
+}
+
+void bootlader_get_last_transmitted_packet(comms_packet_t *const packet)
+{
+	memcpy(packet, &last_sent_packet, sizeof(comms_packet_t));
 }

@@ -6,7 +6,7 @@
 #include "usart.h"
 #include "stdlib.h"
 
-static void cmd_get_version_process(comms_packet_t *const last_packet,
+static void cmd_get_version_process(comms_packet_t *const last_received_packet,
 				    comms_packet_t *const response_packet)
 {
 	response_packet->command_id = B_ACK;
@@ -17,8 +17,16 @@ static void cmd_get_version_process(comms_packet_t *const last_packet,
 	response_packet->crc = crc;
 }
 
-static void retransmit_response_handle(comms_packet_t *const last_packet,
-				       comms_packet_t *const response_packet)
+static void
+cmd_retransmit_last_packet(comms_packet_t *const last_received_packet,
+			   comms_packet_t *const response_packet)
+{
+	bootlader_get_last_transmitted_packet(response_packet);
+}
+
+static void
+retransmit_response_handle(comms_packet_t *const last_received_packet,
+			   comms_packet_t *const response_packet)
 {
 	response_packet->command_id = B_RETRANSMIT;
 	response_packet->length = 0U;
@@ -29,22 +37,34 @@ static void retransmit_response_handle(comms_packet_t *const last_packet,
 bootloader_cmd_t RESPONSE_GET_VERSION = { .command_id = B_CMD_GET_VERSION,
 					  .process = cmd_get_version_process };
 
-bootloader_cmd_t RESPONSE_RETRANSMIT = { .command_id = B_RETRANSMIT,
-					 .process =
-						 retransmit_response_handle };
+bootloader_cmd_t RESPONSE_RETRANSMIT_REQUEST = {
+	.command_id = B_RETRANSMIT,
+	.process = retransmit_response_handle
+};
 
-bootloader_cmd_t *get_retransmit_response_handle(void)
+bootloader_cmd_t CMD_RETRANSMIT_LAST_PACKET = {
+	.command_id = B_ACK,
+	.process = cmd_retransmit_last_packet
+};
+
+bootloader_cmd_t *cmd_send_retransmit_last_cmd(void)
 {
-	bootloader_cmd_t *cmd = &RESPONSE_RETRANSMIT;
+	bootloader_cmd_t *cmd = &RESPONSE_RETRANSMIT_REQUEST;
 	return cmd;
 }
 bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet)
 {
 	bootloader_cmd_t *cmd;
 	switch (packet->command_id) {
-	case B_CMD_GET_VERSION:
+	case B_CMD_RETRANSMIT: {
+		cmd = &CMD_RETRANSMIT_LAST_PACKET;
+		break;
+	}
+
+	case B_CMD_GET_VERSION: {
 		cmd = &RESPONSE_GET_VERSION;
 		break;
+	}
 
 	default:
 		cmd = NULL;

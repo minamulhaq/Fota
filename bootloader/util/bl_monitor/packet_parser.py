@@ -3,7 +3,7 @@
 # ============================================================================
 
 from typing import Optional
-from .command_creator import Command, CommandGetBootloaderVersion, Packet, CommandIDs
+from .command_creator import Command, CommandGetBootloaderVersion, Packet, CommandIDs, ResponseType
 
 
 class PacketParser:
@@ -66,10 +66,10 @@ class PacketParser:
         print(f"RESPONSE INTERPRETATION")
         print(f"{'='*60}")
 
-        if packet.id == CommandIDs.B_ACK.value:
+        if packet.id == ResponseType.B_ACK.value:
             print(f"[INTERPRET] ACK received")
 
-        elif packet.id == CommandIDs.B_NACK.value:
+        elif packet.id == ResponseType.B_NACK.value:
             print(f"[INTERPRET] NACK received")
             if packet.length > 0:
                 assert packet.payload

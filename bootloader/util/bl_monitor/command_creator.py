@@ -10,8 +10,8 @@ class ResponseType(Enum):
     B_RETRANSMIT = 0xE2
 
 
-
 class CommandIDs(Enum):
+    B_CMD_RETRANSMIT = 0xB0
     B_CMD_GET_VERSION = 0xB1
     B_CMD_GET_HELP = 0xB2
     B_CMD_GET_CID = 0xB3
@@ -235,6 +235,24 @@ class Command(ABC):
 # ============================================================================
 # COMMAND IMPLEMENTATIONS
 # ============================================================================
+
+
+class CommandRetransmit(Command):
+    @property
+    def packet(self) -> Packet:
+        return Packet(id=CommandIDs.B_CMD_RETRANSMIT.value, length=0)
+
+    @property
+    def info(self) -> CommandInfo:
+        cmd = CommandIDs.B_CMD_RETRANSMIT.value
+        return CommandInfo(
+            id=cmd,
+            description=f"ID: {cmd} | {cmd:#04X} | Retransmit",
+            nemonic="Retransmit command",
+        )
+
+    def handle_response(self, response_packet: Packet) -> dict:
+        return {}
 
 
 class CommandGetBootloaderVersion(Command):

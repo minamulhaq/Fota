@@ -55,5 +55,6 @@ void bootloader_read_byte(uint8_t *const byte);
 void bootloader_send_bytes(uint8_t *data, uint16_t length);
 bool bootlader_is_data_available(void);
 void bootlader_send_response_packet(comms_packet_t const *packet);
+void bootlader_get_last_transmitted_packet(comms_packet_t *const packet);
 
 #endif // INC_BOOTLOADER_H__

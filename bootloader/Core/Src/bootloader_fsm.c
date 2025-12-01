@@ -30,21 +30,23 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 	}
 
 	case SIGNAL_PACKET_VALID: {
-		comms_packet_t *last_packet = comm_get_last_packet();
-		bootloader_cmd_t *handle = get_command_handle(last_packet);
+		comms_packet_t *last_received_packet = comm_get_last_packet();
+		bootloader_cmd_t *handle =
+			get_command_handle(last_received_packet);
 		if (handle == NULL) {
 			status = FSM_TRANSIT_TO(comm_state_id);
 		} else {
 			comms_packet_t response_packet = { 0 };
-			handle->process(last_packet, &response_packet);
+			handle->process(last_received_packet, &response_packet);
 			bootlader_send_response_packet(&response_packet);
+
 			status = FSM_TRANSIT_TO(comm_state_id);
 		}
 		break;
 	}
 
 	case SIGNAL_PACKET_INVALID: {
-		bootloader_cmd_t *handle = get_retransmit_response_handle();
+		bootloader_cmd_t *handle = cmd_send_retransmit_last_cmd();
 		if (handle == NULL) {
 			status = FSM_TRANSIT_TO(comm_state_id);
 		} else {
