@@ -35,12 +35,16 @@ set(MX_Application_Src
     ${CMAKE_SOURCE_DIR}/Core/Src/stm32l4xx_hal_msp.c
     ${CMAKE_SOURCE_DIR}/Core/Src/sysmem.c
     ${CMAKE_SOURCE_DIR}/Core/Src/bootloader.c
+    ${CMAKE_SOURCE_DIR}/Core/Src/bootloader_fsm.c
+    ${CMAKE_SOURCE_DIR}/Core/Src/sm_common.c
+    ${CMAKE_SOURCE_DIR}/Core/Src/comms.c
     ${CMAKE_SOURCE_DIR}/Core/Src/bootloader_cmds.c
     ${CMAKE_SOURCE_DIR}/Core/Src/syscalls.c
     ${CMAKE_SOURCE_DIR}/startup_stm32l476xx.s
 
 
     ${DIR_COMMON_SRC}/msg_printer.c
+    ${DIR_COMMON_SRC}/is_ringbuffer.c
 )
 
 # STM32 HAL/LL Drivers

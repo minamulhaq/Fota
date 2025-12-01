@@ -97,7 +97,6 @@ int main(void)
 	MX_TIM6_Init();
 	MX_TIM7_Init();
 	/* USER CODE BEGIN 2 */
-	printmsg("Application Initialized\r\n");
 
 	/* USER CODE END 2 */
 
@@ -105,7 +104,6 @@ int main(void)
 	/* USER CODE BEGIN WHILE */
 	static uint32_t count = 0;
 	while (1) {
-		printmsg("Toggling led %d\r\n", count++);
 		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 		HAL_Delay(100);
 		/* USER CODE END WHILE */

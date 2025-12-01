@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
+#include "bootloader.h"
 
 /* USER CODE END Includes */
 
@@ -95,13 +96,14 @@ int main(void)
 	MX_CRC_Init();
 	MX_TIM6_Init();
 	MX_TIM7_Init();
-	/* USER CODE BEGIN 2 */
 
+	/* USER CODE BEGIN 2 */
+	bootloader_setup();
+	bootloader_decide();
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	bootloader_decide();
 	while (1) {
 		/* USER CODE END WHILE */
 

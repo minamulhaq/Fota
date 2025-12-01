@@ -6,6 +6,54 @@
 #include "usart.h"
 #include "stdlib.h"
 
+static void cmd_get_version_process(comms_packet_t *const last_packet,
+				    comms_packet_t *const response_packet)
+{
+	response_packet->command_id = B_ACK;
+	response_packet->length = sizeof(bootloader_version);
+	memcpy(response_packet->payload, &bootloader_version,
+	       sizeof(bootloader_version));
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
+static void retransmit_response_handle(comms_packet_t *const last_packet,
+				       comms_packet_t *const response_packet)
+{
+	response_packet->command_id = B_RETRANSMIT;
+	response_packet->length = 0U;
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
+bootloader_cmd_t RESPONSE_GET_VERSION = { .command_id = B_CMD_GET_VERSION,
+					  .process = cmd_get_version_process };
+
+bootloader_cmd_t RESPONSE_RETRANSMIT = { .command_id = B_RETRANSMIT,
+					 .process =
+						 retransmit_response_handle };
+
+bootloader_cmd_t *get_retransmit_response_handle(void)
+{
+	bootloader_cmd_t *cmd = &RESPONSE_RETRANSMIT;
+	return cmd;
+}
+bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet)
+{
+	bootloader_cmd_t *cmd;
+	switch (packet->command_id) {
+	case B_CMD_GET_VERSION:
+		cmd = &RESPONSE_GET_VERSION;
+		break;
+
+	default:
+		cmd = NULL;
+		break;
+	}
+	return cmd;
+}
+
+/*
 void bootloader_send_command_response(CRC_VERIFICATION v, bootloader_cmd *cmd)
 {
 	BootloaderResponseCode code = v == VERIFY_CRC_SUCCESS ? B_ACK : B_NACK;
@@ -171,3 +219,4 @@ void bcmd_erase_flash_handle(bootloader_cmd *cmd, uint8_t *data)
 void bcmd_erase_flash_response_buffer(uint8_t *buffer)
 {
 }
+*/
