@@ -38,7 +38,7 @@ set(MX_Application_Src
     ${CMAKE_SOURCE_DIR}/startup_stm32l476xx.s
 
 
-    ${DIR_COMMON_SRC}/msg_printer.c
+    ${DIR_COMMON_SRC}/fota_api.c
 )
 
 # STM32 HAL/LL Drivers

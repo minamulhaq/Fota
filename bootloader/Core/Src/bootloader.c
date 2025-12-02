@@ -15,6 +15,7 @@
 #include "stm32l4xx_hal_usart.h"
 #include "comms.h"
 #include "bootloader_fsm.h"
+#include "fota_api.h"
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
@@ -99,7 +100,8 @@ void run_bootloader_main_fsm(void)
 
 void bootloader_decide(void)
 {
-	run_bootloader_main_fsm();
+	bootloader_read_app_version(NULL);
+	// run_bootloader_main_fsm();
 	while (elapsed_time > 0) {
 		HAL_Delay(1);
 	}
@@ -286,4 +288,10 @@ void bootlader_send_response_packet(comms_packet_t const *packet)
 void bootlader_get_last_transmitted_packet(comms_packet_t *const packet)
 {
 	memcpy(packet, &last_sent_packet, sizeof(comms_packet_t));
+}
+
+void bootloader_read_app_version(version_t *const version)
+{
+	version_t firmware_version = { 0 };
+	fota_api_get_app_version(&firmware_version);
 }

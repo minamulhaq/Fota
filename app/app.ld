@@ -1,6 +1,7 @@
 
 /* App LD - Entry Point */
 ENTRY(Reset_Handler)
+INCLUDE  memory_map.ld
 
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);    /* end of RAM */
@@ -8,36 +9,19 @@ _estack = ORIGIN(RAM) + LENGTH(RAM);    /* end of RAM */
 _Min_Heap_Size = 0x200;      /* required amount of heap  */
 _Min_Stack_Size = 0x400; /* required amount of stack */
 
-/* Specify the memory areas */
-MEMORY
-{
-RAM (xrw)             : ORIGIN = 0x20000000, LENGTH = 96K
-RAM2 (xrw)            : ORIGIN = 0x10000000, LENGTH = 32K
-
-/* Define the FOTA_SHARED region as the fixed 2KB slot for the application to READ/WRITE. */
-/* This region must start immediately after the Bootloader (0x8000000 + 64K). */
-/* ORIGIN: 0x8010000 */
-/* LENGTH: 2K */
-FOTA_SHARED (rx) : ORIGIN = 0x8010000, LENGTH = 2K
-
-/* The main application FLASH area. This is where .text, .isr_vector, etc., are placed. */
-/* ORIGIN: 0x8010000 + 2K = 0x8010800 */
-/* LENGTH: 1024K - 64K - 2K = 958K */
-FLASH (rx)     : ORIGIN = 0x8010800, LENGTH = 256K
-}
 
 /* Define output sections */
 SECTIONS
 {
-  /* The startup code goes first into FLASH */
+  /* The startup code goes first into APP_FLASH */
   .isr_vector :
   {
     . = ALIGN(8);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(8);
-  } >FLASH
+  } >APP_FLASH
 
-  /* The program code and other data goes into FLASH */
+  /* The program code and other data goes into APP_FLASH */
   .text :
   {
     . = ALIGN(8);
@@ -52,23 +36,23 @@ SECTIONS
 
     . = ALIGN(8);
     _etext = .;        /* define a global symbols at end of code */
-  } >FLASH
+  } >APP_FLASH
 
-  /* Constant data goes into FLASH */
+  /* Constant data goes into APP_FLASH */
   .rodata :
   {
     . = ALIGN(8);
     *(.rodata)         /* .rodata sections (constants, strings, etc.) */
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(8);
-  } >FLASH
+  } >APP_FLASH
 
   .ARM.extab (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
   . = ALIGN(8);
   *(.ARM.extab* .gnu.linkonce.armextab.*)
   . = ALIGN(8);
-  } >FLASH
+  } >APP_FLASH
 
   .ARM (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -77,7 +61,7 @@ SECTIONS
     *(.ARM.exidx*)
     __exidx_end = .;
 	. = ALIGN(8);
-  } >FLASH
+  } >APP_FLASH
 
   .preinit_array (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -86,7 +70,7 @@ SECTIONS
     KEEP (*(.preinit_array*))
     PROVIDE_HIDDEN (__preinit_array_end = .);
 	. = ALIGN(8);
-  } >FLASH
+  } >APP_FLASH
 
   .init_array (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -96,7 +80,7 @@ SECTIONS
     KEEP (*(.init_array*))
     PROVIDE_HIDDEN (__init_array_end = .);
 	. = ALIGN(8);
-  } >FLASH
+  } >APP_FLASH
 
   .fini_array (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
 
@@ -107,7 +91,7 @@ SECTIONS
     KEEP (*(.fini_array*))
     PROVIDE_HIDDEN (__fini_array_end = .);
 	. = ALIGN(8);
-  } >FLASH
+  } >APP_FLASH
 
   /* used by the startup to initialize data */
   _sidata = LOADADDR(.data);
@@ -124,7 +108,7 @@ SECTIONS
 
     . = ALIGN(8);
     _edata = .;        /* define a global symbol at data end */
-  } >RAM AT> FLASH
+  } >RAM AT> APP_FLASH
 
 
   /* Uninitialized data section */
@@ -155,8 +139,8 @@ SECTIONS
   } >RAM
 
 
-  .API_SHARED (NOLOAD) : {
-    . = ALIGN(4);
+  .API_SHARED  : {
+    . = ALIGN(8);
     KEEP(*(.API_SHARED))
   } > FOTA_SHARED
 

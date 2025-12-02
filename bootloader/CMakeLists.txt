@@ -50,6 +50,11 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
 )
 
+set(COMMON_LD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../common)
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+    -L${COMMON_LD_DIR}
+)
+
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths

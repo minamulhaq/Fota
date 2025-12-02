@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include "versions.h"
 #include "flash.h"
+#include "fota_api.h"
 
 /* USER CODE END Includes */
 
@@ -61,12 +62,11 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-const version_t fota_app_version FOTA_SHARED_REGION = { .major = 0xAB,
-						   .minor = 0xBC,
-						   .patch = 0xCD,
-						   .padding = { 0 }
-
-};
+version_t fota_app_version FOTA_SHARED_REGION = { .major = 0x01,
+						  .minor = 0x00,
+						  .patch = 0x00,
+						  .padding = { 0xFF, 0xFF, 0xFF,
+							       0xFF, 0xFF } };
 
 /* USER CODE END 0 */
 
@@ -104,6 +104,8 @@ int main(void)
 	MX_TIM6_Init();
 	MX_TIM7_Init();
 	/* USER CODE BEGIN 2 */
+
+	fota_api_set_app_version(&fota_app_version);
 
 	/* USER CODE END 2 */
 

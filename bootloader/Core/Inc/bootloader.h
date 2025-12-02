@@ -8,6 +8,7 @@
 #include "sm_common.h"
 #include "usart.h"
 #include "comms.h"
+#include "versions.h"
 
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 2
@@ -56,5 +57,7 @@ void bootloader_send_bytes(uint8_t *data, uint16_t length);
 bool bootlader_is_data_available(void);
 void bootlader_send_response_packet(comms_packet_t const *packet);
 void bootlader_get_last_transmitted_packet(comms_packet_t *const packet);
+
+void bootloader_read_app_version(version_t *const version);
 
 #endif // INC_BOOTLOADER_H__
