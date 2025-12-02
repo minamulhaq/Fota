@@ -27,7 +27,8 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
-#include <msg_printer.h>
+#include "versions.h"
+#include "flash.h"
 
 /* USER CODE END Includes */
 
@@ -60,6 +61,12 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+const version_t fota_app_version FOTA_SHARED_REGION = { .major = 0xAB,
+						   .minor = 0xBC,
+						   .patch = 0xCD,
+						   .padding = { 0 }
+
+};
 
 /* USER CODE END 0 */
 
@@ -102,7 +109,6 @@ int main(void)
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	static uint32_t count = 0;
 	while (1) {
 		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 		HAL_Delay(100);
