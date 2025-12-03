@@ -22,11 +22,46 @@ uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
 static comms_packet_t last_sent_packet = { 0 };
 
 static int8_t elapsed_time = 3;
+
+#define FLASH_ERASED_VALUE 0xFFFFFFFFU
+
+static bool is_msp_valid(uint32_t msp_val)
+{
+	/* Check for erased/zero */
+	if (msp_val == 0x00000000UL || msp_val == FLASH_ERASED_VALUE)
+		return false;
+
+	/* Must be 4-byte aligned */
+	if (msp_val & 0x3U)
+		return false;
+
+	/* Calculate RAM boundaries */
+	const uint32_t SRAM1_START = SRAM1_BASE;
+	const uint32_t SRAM1_END =
+		SRAM1_BASE + SRAM1_SIZE_MAX; /* Changed: removed -1 */
+	const uint32_t SRAM2_START = SRAM2_BASE;
+	const uint32_t SRAM2_END =
+		SRAM2_BASE + SRAM2_SIZE; /* Changed: removed -1 */
+
+	/* MSP can point to top of RAM (one past last valid address) */
+	bool in_sram1_range = (msp_val >= SRAM1_START) &&
+			      (msp_val <= SRAM1_END);
+	bool in_sram2_range = (msp_val >= SRAM2_START) &&
+			      (msp_val <= SRAM2_END);
+
+	return (in_sram1_range || in_sram2_range);
+}
+
 void bootloader_jump_to_user_app(void)
 {
 	/*
      * 1. Configure the MSP by reading the value from the base address of the application
      */
+
+	uint32_t msp = *(volatile uint32_t *)FLASH_SECTOR_APP_START_ADDRESS;
+	if (!is_msp_valid(msp)) {
+		return;
+	}
 
 	__disable_irq(); // Disable interrupts
 	for (int i = 0; i < 8; i++) // Clear all NVIC pending registers
@@ -106,11 +141,10 @@ void bootloader_decide(void)
 		HAL_Delay(1);
 	}
 
-	if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET) {
-		run_bootloader_main_fsm();
-		return; // exit after entering bootloader
+	if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET) {
+		bootloader_jump_to_user_app();
 	}
-	bootloader_jump_to_user_app();
+	run_bootloader_main_fsm();
 }
 
 bool bootloader_verify_crc(comms_packet_t *packet)
