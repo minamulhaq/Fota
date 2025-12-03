@@ -141,7 +141,7 @@ void bootloader_decide(void)
 		HAL_Delay(1);
 	}
 
-	if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET) {
+	if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET) {
 		bootloader_jump_to_user_app();
 	}
 	run_bootloader_main_fsm();
@@ -326,6 +326,5 @@ void bootlader_get_last_transmitted_packet(comms_packet_t *const packet)
 
 void bootloader_read_app_version(version_t *const version)
 {
-	version_t firmware_version = { 0 };
-	fota_api_get_app_version(&firmware_version);
+	fota_api_get_app_version(version);
 }

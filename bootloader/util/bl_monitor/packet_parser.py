@@ -3,7 +3,9 @@
 # ============================================================================
 
 from typing import Optional
-from .command_creator import Command, CommandGetBootloaderVersion, Packet, CommandIDs, ResponseType
+
+from .command_creator import Command, CommandIDs, Packet, ResponseType
+from .commands.command_get_bootloader_version import CommandGetBootloaderVersion
 
 
 class PacketParser:
@@ -84,7 +86,7 @@ class PacketParser:
                 }
                 print(f"[INTERPRET] Error Code: 0x{error_code:02X} ({error_names.get(error_code, 'UNKNOWN')})")
 
-        elif packet.id == CommandIDs.B_CMD_GET_VERSION.value:
+        elif packet.id == CommandIDs.B_CMD_GET_BOOTLOADER_VERSION.value:
             if packet.length == 3:
                 assert packet.payload
                 major, minor, patch = packet.payload[0], packet.payload[1], packet.payload[2]

@@ -13,13 +13,14 @@ typedef enum {
 } bootloader_response_type_t;
 
 typedef enum {
-	B_CMD_RETRANSMIT = 0xB0,
-	B_CMD_GET_VERSION = 0xB1,
-	B_CMD_GET_HELP = 0xB2,
-	B_CMD_GET_CID = 0xB3,
-	B_CMD_GET_RDP_LVL = 0xB4,
-	B_CMD_JMP_TO_ADDR = 0xB5,
-	B_CMD_ERASE_FLASH = 0xB6,
+	B_CMD_RETRANSMIT_LAST_PACKET_TO_CLIENT = 0xB0,
+	B_CMD_GET_BOOTLOADER_VERSION = 0xB1,
+	B_CMD_GET_APP_VERSION = 0xB2,
+	// B_CMD_GET_HELP = 0xB2,
+	// B_CMD_GET_CID = 0xB3,
+	// B_CMD_GET_RDP_LVL = 0xB4,
+	// B_CMD_JMP_TO_ADDR = 0xB5,
+	// B_CMD_ERASE_FLASH = 0xB6,
 } bootloader_packet_id_t;
 
 typedef struct bootloader_cmd {

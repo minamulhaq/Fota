@@ -3,19 +3,18 @@ from typing import Optional
 
 from bl_monitor import (
     Command,
-    CommandRetransmit,
-    CommandEraseFlash,
+    CommandGetAppVersion,
     CommandGetBootloaderVersion,
     CommandGetChipID,
     CommandGetHelp,
     CommandGetRDPLevel,
     CommandJumpToAddress,
+    CommandRetransmit,
     Packet,
 )
 from bl_monitor.command_creator import ResponseType
 from serial import Serial
 from serial.tools import list_ports
-
 
 # ============================================================================
 # SERIAL MONITOR
@@ -32,6 +31,7 @@ class SerialMonitor:
         self.supported_commands: dict[int, Command] = {
             1: CommandRetransmit(),
             2: CommandGetBootloaderVersion(),
+            3: CommandGetAppVersion(),
         }
 
     def scan_com_ports(self) -> Optional[Serial]:

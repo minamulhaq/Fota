@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, auto
 from typing import Optional
 
 
@@ -12,12 +12,13 @@ class ResponseType(Enum):
 
 class CommandIDs(Enum):
     B_CMD_RETRANSMIT = 0xB0
-    B_CMD_GET_VERSION = 0xB1
-    B_CMD_GET_HELP = 0xB2
-    B_CMD_GET_CID = 0xB3
-    B_CMD_GET_RDP_LVL = 0xB4
-    B_CMD_JMP_TO_ADDR = 0xB5
-    B_CMD_ERASE_FLASH = 0xB6
+    B_CMD_GET_BOOTLOADER_VERSION = 0xB1
+    B_CMD_GET_APP_VERSION = auto()
+    B_CMD_GET_HELP = auto()
+    B_CMD_GET_CID = auto()
+    B_CMD_GET_RDP_LVL = auto()
+    B_CMD_JMP_TO_ADDR = auto()
+    B_CMD_ERASE_FLASH = auto()
 
 
 @dataclass
@@ -47,6 +48,10 @@ class CommandInfo:
 
 
 class Command(ABC):
+    @property
+    @abstractmethod
+    def cmd_id(self) -> CommandIDs: ...
+
     @property
     @abstractmethod
     def packet(self) -> Packet: ...
@@ -230,230 +235,3 @@ class Command(ABC):
         )
 
         return packet
-
-
-# ============================================================================
-# COMMAND IMPLEMENTATIONS
-# ============================================================================
-
-
-class CommandRetransmit(Command):
-    @property
-    def packet(self) -> Packet:
-        return Packet(id=CommandIDs.B_CMD_RETRANSMIT.value, length=0)
-
-    @property
-    def info(self) -> CommandInfo:
-        cmd = CommandIDs.B_CMD_RETRANSMIT.value
-        return CommandInfo(
-            id=cmd,
-            description=f"ID: {cmd} | {cmd:#04X} | Retransmit",
-            nemonic="Retransmit command",
-        )
-
-    def handle_response(self, response_packet: Packet) -> dict:
-        return {}
-
-
-class CommandGetBootloaderVersion(Command):
-    @property
-    def packet(self) -> Packet:
-        return Packet(id=CommandIDs.B_CMD_GET_VERSION.value, length=0)
-
-    @property
-    def info(self) -> CommandInfo:
-        return CommandInfo(
-            id=CommandIDs.B_CMD_GET_VERSION.value,
-            description=f"ID: {CommandIDs.B_CMD_GET_VERSION.value} | {CommandIDs.B_CMD_GET_VERSION.value:#04X} | Get Bootloader Version",
-            nemonic="CommandGetBootloaderVersion",
-        )
-
-    def handle_response(self, response_packet: Packet) -> dict:
-        """
-        Handle GET_VERSION response.
-
-        Expected response:
-        - ACK (0xE0) with 3-byte payload: [major, minor, patch]
-        - NACK (0xE1) with error code
-
-        Args:
-            response_packet: Validated packet from bootloader
-
-        Returns:
-            dict: {
-                'success': bool,
-                'version': str (if success),
-                'major': int (if success),
-                'minor': int (if success),
-                'patch': int (if success),
-                'error_code': int (if NACK)
-            }
-        """
-        print(f"{'=' * 60}")
-        print(f"HANDLING GET_VERSION RESPONSE")
-        print(f"{'=' * 60}")
-
-        result = {}
-
-        # Check if ACK
-        if response_packet.id == ResponseType.B_ACK.value:
-            print(f"[HANDLER] Received: ACK")
-
-            # Validate payload
-            if response_packet.length != 3:
-                print(
-                    f"[HANDLER] ERROR: Expected 3-byte payload, got {response_packet.length}"
-                )
-                result["success"] = False
-                result["error"] = f"Invalid payload length: {response_packet.length}"
-                return result
-
-            if not response_packet.payload or len(response_packet.payload) < 3:
-                print(f"[HANDLER] ERROR: Payload missing or incomplete")
-                result["success"] = False
-                result["error"] = "Payload missing"
-                return result
-
-            # Parse version
-            major = response_packet.payload[0]
-            minor = response_packet.payload[1]
-            patch = response_packet.payload[2]
-
-            version_string = f"{major}.{minor}.{patch}"
-
-            print(f"[HANDLER] Version parsed:")
-            print(f"          Major: {major}")
-            print(f"          Minor: {minor}")
-            print(f"          Patch: {patch}")
-            print(f"          Version: {version_string}")
-
-            result["success"] = True
-            result["version"] = version_string
-            result["major"] = major
-            result["minor"] = minor
-            result["patch"] = patch
-
-        # Check if NACK
-        elif response_packet.id == ResponseType.B_NACK.value:
-            print(f"[HANDLER] Received: NACK")
-
-            error_code = response_packet.payload[0] if response_packet.payload else 0xFF
-
-            error_names = {
-                0x00: "SUCCESS (unexpected in NACK)",
-                0x01: "INVALID_CMD",
-                0x02: "INVALID_PARAMS",
-                0x03: "EXECUTION_FAILED",
-                0x04: "FLASH_ERROR",
-                0x05: "ADDRESS_ERROR",
-            }
-
-            error_desc = error_names.get(error_code, "UNKNOWN_ERROR")
-
-            print(f"[HANDLER] Error code: 0x{error_code:02X} ({error_desc})")
-
-            result["success"] = False
-            result["error_code"] = error_code
-            result["error_desc"] = error_desc
-
-        else:
-            print(
-                f"[HANDLER] ERROR: Unexpected response ID: 0x{response_packet.id:02X}"
-            )
-            result["success"] = False
-            result["error"] = f"Unexpected response ID: 0x{response_packet.id:02X}"
-
-        print(f"{'=' * 60}\n")
-
-        return result
-
-
-class CommandGetHelp(Command):
-    @property
-    def packet(self) -> Packet:
-        return Packet(id=CommandIDs.B_CMD_GET_HELP.value, length=0)
-
-    @property
-    def info(self) -> CommandInfo:
-        return CommandInfo(
-            id=CommandIDs.B_CMD_GET_HELP.value,
-            description=f"ID: {CommandIDs.B_CMD_GET_HELP.value} | {CommandIDs.B_CMD_GET_HELP.value:#04X} | Get Supported Commands",
-            nemonic="CommandGetHelp",
-        )
-
-
-class CommandGetChipID(Command):
-    @property
-    def packet(self) -> Packet:
-        return Packet(id=CommandIDs.B_CMD_GET_CID.value, length=0)
-
-    @property
-    def info(self) -> CommandInfo:
-        return CommandInfo(
-            id=CommandIDs.B_CMD_GET_CID.value,
-            description=f"ID: {CommandIDs.B_CMD_GET_CID.value} | {CommandIDs.B_CMD_GET_CID.value:#04X} | Get Chip ID",
-            nemonic="CommandGetChipID",
-        )
-
-
-class CommandGetRDPLevel(Command):
-    @property
-    def packet(self) -> Packet:
-        return Packet(id=CommandIDs.B_CMD_GET_RDP_LVL.value, length=0)
-
-    @property
-    def info(self) -> CommandInfo:
-        return CommandInfo(
-            id=CommandIDs.B_CMD_GET_RDP_LVL.value,
-            description=f"ID: {CommandIDs.B_CMD_GET_RDP_LVL.value} | {CommandIDs.B_CMD_GET_RDP_LVL.value:#04X} | Get Read Protection Level",
-            nemonic="CommandGetRDPLevel",
-        )
-
-
-class CommandJumpToAddress(Command):
-    def __init__(self, address: int):
-        self.address = address
-
-    @property
-    def packet(self) -> Packet:
-        # Address as 4 bytes little-endian
-        payload = list(self.address.to_bytes(4, byteorder="little"))
-        return Packet(id=CommandIDs.B_CMD_JMP_TO_ADDR.value, length=4, payload=payload)
-
-    @property
-    def info(self) -> CommandInfo:
-        return CommandInfo(
-            id=CommandIDs.B_CMD_JMP_TO_ADDR.value,
-            description=f"ID: {CommandIDs.B_CMD_JMP_TO_ADDR.value} | {CommandIDs.B_CMD_JMP_TO_ADDR.value:#04X} | Jump to Address: 0x{self.address:08X}",
-            nemonic="CommandJumpToAddress",
-        )
-
-
-class CommandEraseFlash(Command):
-    def __init__(self, sectors: list[int] | None = None, mass_erase: bool = False):
-        self.sectors = sectors if sectors else []
-        self.mass_erase = mass_erase
-
-    @property
-    def packet(self) -> Packet:
-        if self.mass_erase:
-            payload = [0xFF, 0xFF]
-            length = 2
-        else:
-            payload = [len(self.sectors)] + self.sectors
-            length = len(payload)
-
-        return Packet(
-            id=CommandIDs.B_CMD_ERASE_FLASH.value, length=length, payload=payload
-        )
-
-    @property
-    def info(self) -> CommandInfo:
-        erase_type = (
-            "Mass Erase" if self.mass_erase else f"Erase Sectors: {self.sectors}"
-        )
-        return CommandInfo(
-            id=CommandIDs.B_CMD_ERASE_FLASH.value,
-            description=f"ID: {CommandIDs.B_CMD_ERASE_FLASH.value} | {CommandIDs.B_CMD_ERASE_FLASH.value:#04X} | {erase_type}",
-            nemonic="CommandEraseFlash",
-        )

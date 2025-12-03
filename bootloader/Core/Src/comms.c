@@ -18,7 +18,7 @@ extern Event exit_event;
 
 status_t comm_state_init(bootloader_fsm_t *me, StateHandler initial)
 {
-	FSM_TRANSIT_TO(comm_state_id);
+	return FSM_TRANSIT_TO(comm_state_id);
 }
 
 status_t comm_state_id(bootloader_fsm_t *const me, Event const *const e)

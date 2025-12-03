@@ -6,13 +6,27 @@
 #include "usart.h"
 #include "stdlib.h"
 
-static void cmd_get_version_process(comms_packet_t *const last_received_packet,
-				    comms_packet_t *const response_packet)
+static void
+cmd_get_bootloader_version_process(comms_packet_t *const last_received_packet,
+				   comms_packet_t *const response_packet)
 {
 	response_packet->command_id = B_ACK;
 	response_packet->length = sizeof(bootloader_version);
 	memcpy(response_packet->payload, &bootloader_version,
 	       sizeof(bootloader_version));
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
+static void
+cmd_get_app_version_process(comms_packet_t *const last_received_packet,
+			    comms_packet_t *const response_packet)
+{
+	version_t v = { 0 };
+	bootloader_read_app_version(&v);
+	response_packet->command_id = B_ACK;
+	response_packet->length = sizeof(version_t);
+	memcpy(response_packet->payload, &v, sizeof(version_t));
 	uint32_t crc = bootloader_compute_crc(response_packet);
 	response_packet->crc = crc;
 }
@@ -34,35 +48,47 @@ retransmit_response_handle(comms_packet_t *const last_received_packet,
 	response_packet->crc = crc;
 }
 
-bootloader_cmd_t RESPONSE_GET_VERSION = { .command_id = B_CMD_GET_VERSION,
-					  .process = cmd_get_version_process };
+static bootloader_cmd_t RESPONSE_GET_BOOTLOADER_VERSION = {
+	.command_id = B_CMD_GET_BOOTLOADER_VERSION,
+	.process = cmd_get_bootloader_version_process
+};
 
-bootloader_cmd_t RESPONSE_RETRANSMIT_REQUEST = {
+static bootloader_cmd_t RESPONSE_GET_APP_VERSION = {
+	.command_id = B_CMD_GET_APP_VERSION,
+	.process = cmd_get_app_version_process
+};
+
+static bootloader_cmd_t RESPONSE_REQUEST_CLIENT_RETRANSMIT_REQUEST = {
 	.command_id = B_RETRANSMIT,
 	.process = retransmit_response_handle
 };
 
-bootloader_cmd_t CMD_RETRANSMIT_LAST_PACKET = {
+static bootloader_cmd_t CMD_RETRANSMIT_LAST_PACKET_TO_CLIENT = {
 	.command_id = B_ACK,
 	.process = cmd_retransmit_last_packet
 };
 
 bootloader_cmd_t *cmd_send_retransmit_last_cmd(void)
 {
-	bootloader_cmd_t *cmd = &RESPONSE_RETRANSMIT_REQUEST;
+	bootloader_cmd_t *cmd = &RESPONSE_REQUEST_CLIENT_RETRANSMIT_REQUEST;
 	return cmd;
 }
 bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet)
 {
 	bootloader_cmd_t *cmd;
 	switch (packet->command_id) {
-	case B_CMD_RETRANSMIT: {
-		cmd = &CMD_RETRANSMIT_LAST_PACKET;
+	case B_CMD_RETRANSMIT_LAST_PACKET_TO_CLIENT: {
+		cmd = &CMD_RETRANSMIT_LAST_PACKET_TO_CLIENT;
 		break;
 	}
 
-	case B_CMD_GET_VERSION: {
-		cmd = &RESPONSE_GET_VERSION;
+	case B_CMD_GET_BOOTLOADER_VERSION: {
+		cmd = &RESPONSE_GET_BOOTLOADER_VERSION;
+		break;
+	}
+
+	case B_CMD_GET_APP_VERSION: {
+		cmd = &RESPONSE_GET_APP_VERSION;
 		break;
 	}
 
@@ -90,7 +116,7 @@ void bootloader_send_command_response(CRC_VERIFICATION v, bootloader_cmd *cmd)
 }
 
 bootloader_cmd BootloaderCommandGetVersion = {
-	B_CMD_GET_VERSION, 0x03, bcmd_default_handle,
+	B_CMD_GET_BOOTLOADER_VERSION, 0x03, bcmd_default_handle,
 	bcmd_get_version_response_buffer
 };
 bootloader_cmd BootloaderCommandGetHelp = { B_CMD_GET_HELP, 0x00,
