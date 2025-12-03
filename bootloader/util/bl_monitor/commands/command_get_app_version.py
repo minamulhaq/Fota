@@ -39,8 +39,7 @@ class CommandGetAppVersion(Command):
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=self.cmd_id.value,
-            description=f"ID: {self.cmd_id.value} | {self.cmd_id.value:#04X} | Get Application Version",
-            nemonic="CommandGetAppVersion",
+            nemonic="Command Get App Version",
         )
 
     def handle_response(self, response_packet: Packet) -> dict:

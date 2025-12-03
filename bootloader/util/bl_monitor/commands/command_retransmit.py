@@ -21,7 +21,6 @@ class CommandRetransmit(Command):
         cmd = self.cmd_id.value
         return CommandInfo(
             id=cmd,
-            description=f"ID: {cmd} | {cmd:#04X} | Retransmit",
             nemonic="Retransmit command",
         )
 

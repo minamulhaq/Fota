@@ -37,13 +37,13 @@ class Packet:
 class CommandInfo:
     id: int
     nemonic: str
-    description: str
+    # description: str
 
     def __str__(self) -> str:
+        return f"id: {self.id:#04x} | {self.nemonic}"
         response = f"Command: {self.nemonic}\n"
-        response += f"ID: {self.id}\n"
+        response += f"ID: 0x{hex(self.id):2x}\n"
         response += f"Description: {self.description}"
-
         return response
 
 

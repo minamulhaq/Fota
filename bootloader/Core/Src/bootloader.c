@@ -135,8 +135,6 @@ void run_bootloader_main_fsm(void)
 
 void bootloader_decide(void)
 {
-	bootloader_read_app_version(NULL);
-	// run_bootloader_main_fsm();
 	while (elapsed_time > 0) {
 		HAL_Delay(1);
 	}

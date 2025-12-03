@@ -275,7 +275,7 @@ class SerialMonitor:
                 print("AVAILABLE COMMANDS")
                 print(f"{'=' * 70}")
                 for idx, cmd in enumerate(self.supported_commands.values(), 1):
-                    print(f"  {idx}. {cmd.info.description}")
+                    print(f"  {idx}. {cmd.info}")
                 print("  0. Exit")
                 print(f"{'=' * 70}")
 

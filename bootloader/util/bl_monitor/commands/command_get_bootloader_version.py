@@ -20,8 +20,7 @@ class CommandGetBootloaderVersion(Command):
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=self.cmd_id.value,
-            description=f"ID: {self.cmd_id.value} | {self.cmd_id.value:#04X} | Get Bootloader Version",
-            nemonic="CommandGetBootloaderVersion",
+            nemonic="Get Bootloader Version",
         )
 
     def handle_response(self, response_packet: Packet) -> dict:
