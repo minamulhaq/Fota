@@ -344,5 +344,16 @@ bool bootloader_erase_shared_plus_app(void)
 	HAL_StatusTypeDef ret = HAL_FLASHEx_Erase(&erase, &error);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 	HAL_FLASH_Lock();
-	return error == HAL_OK ? true : false;
+	return ret == HAL_OK ? true : false;
+}
+
+bool bootloader_flash_app(void)
+{
+	uint64_t value = 0xAABBCCDDEEFF1122ULL;
+	bootloader_erase_shared_plus_app();
+	HAL_FLASH_Unlock();
+	HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, FOTA_SHARED_START,
+			  value);
+	HAL_FLASH_Lock();
+	return true;
 }
