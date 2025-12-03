@@ -15,6 +15,5 @@ class CommandGetHelp(Command):
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=CommandIDs.B_CMD_GET_HELP.value,
-            description=f"ID: {CommandIDs.B_CMD_GET_HELP.value} | {CommandIDs.B_CMD_GET_HELP.value:#04X} | Get Supported Commands",
-            nemonic="CommandGetHelp",
+            nemonic="Get Supported Commands",
         )

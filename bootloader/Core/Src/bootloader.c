@@ -16,6 +16,8 @@
 #include "comms.h"
 #include "bootloader_fsm.h"
 #include "fota_api.h"
+#include "stm32l4xx_hal_flash.h"
+#include "stm32l4xx_hal_gpio.h"
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
@@ -140,6 +142,7 @@ void bootloader_decide(void)
 	}
 
 	if (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET) {
+		// TODO: Return ack or nack
 		bootloader_jump_to_user_app();
 	}
 	run_bootloader_main_fsm();
@@ -325,4 +328,21 @@ void bootlader_get_last_transmitted_packet(comms_packet_t *const packet)
 void bootloader_read_app_version(version_t *const version)
 {
 	fota_api_get_app_version(version);
+}
+
+bool bootloader_erase_shared_plus_app(void)
+{
+	uint32_t error;
+	FLASH_EraseInitTypeDef erase = { .TypeErase = FLASH_TYPEERASE_PAGES,
+					 .Banks = FOTA_SHARED_APP_BANK,
+					 .Page = FOTA_SHARED_APP_PAGE,
+					 .NbPages = FOTA_SHARED_APP_NBPAGES
+
+	};
+	HAL_FLASH_Unlock();
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+	HAL_StatusTypeDef ret = HAL_FLASHEx_Erase(&erase, &error);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+	HAL_FLASH_Lock();
+	return error == HAL_OK ? true : false;
 }

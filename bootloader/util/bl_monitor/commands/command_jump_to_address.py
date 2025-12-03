@@ -3,7 +3,6 @@ from bl_monitor.command_creator import (
     CommandIDs,
     CommandInfo,
     Packet,
-    ResponseType,
 )
 
 
@@ -21,6 +20,5 @@ class CommandJumpToAddress(Command):
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=CommandIDs.B_CMD_JMP_TO_ADDR.value,
-            description=f"ID: {CommandIDs.B_CMD_JMP_TO_ADDR.value} | {CommandIDs.B_CMD_JMP_TO_ADDR.value:#04X} | Jump to Address: 0x{self.address:08X}",
-            nemonic="CommandJumpToAddress",
+            nemonic=f"Jump to Address: 0x{self.address:08X}",
         )

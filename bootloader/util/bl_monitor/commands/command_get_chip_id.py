@@ -16,6 +16,5 @@ class CommandGetChipID(Command):
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=CommandIDs.B_CMD_GET_CID.value,
-            description=f"ID: {CommandIDs.B_CMD_GET_CID.value} | {CommandIDs.B_CMD_GET_CID.value:#04X} | Get Chip ID",
-            nemonic="CommandGetChipID",
+            nemonic="Get Chip ID",
         )

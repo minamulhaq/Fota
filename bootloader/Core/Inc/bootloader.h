@@ -59,5 +59,6 @@ void bootlader_send_response_packet(comms_packet_t const *packet);
 void bootlader_get_last_transmitted_packet(comms_packet_t *const packet);
 
 void bootloader_read_app_version(version_t *const version);
+bool bootloader_erase_shared_plus_app(void);
 
 #endif // INC_BOOTLOADER_H__

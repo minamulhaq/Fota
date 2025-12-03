@@ -31,6 +31,5 @@ class CommandEraseFlash(Command):
         )
         return CommandInfo(
             id=CommandIDs.B_CMD_ERASE_FLASH.value,
-            description=f"ID: {CommandIDs.B_CMD_ERASE_FLASH.value} | {CommandIDs.B_CMD_ERASE_FLASH.value:#04X} | {erase_type}",
-            nemonic="CommandEraseFlash",
+            nemonic=erase_type,
         )

@@ -16,6 +16,5 @@ class CommandGetRDPLevel(Command):
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=CommandIDs.B_CMD_GET_RDP_LVL.value,
-            description=f"ID: {CommandIDs.B_CMD_GET_RDP_LVL.value} | {CommandIDs.B_CMD_GET_RDP_LVL.value:#04X} | Get Read Protection Level",
-            nemonic="CommandGetRDPLevel",
+            nemonic="Get Read Protection Level",
         )
