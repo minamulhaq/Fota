@@ -73,19 +73,12 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     # Add user defined libraries
 )
 
-# add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
-#     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.hex
-#     COMMENT "Generating HEX file from ELF"
-# )
-
-
 add_custom_command(
     TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.hex
     COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.bin
     COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
-    COMMAND arm-none-eabi-readelf -h $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
+    COMMAND ${TOOLCHAIN_PREFIX}readelf -h $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
     COMMENT "Post-Build: Generating HEX/BIN, Reporting Size, and Verifying ELF Header"
-    COMMAND /bin/ls -lh $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.hex
 )
 
