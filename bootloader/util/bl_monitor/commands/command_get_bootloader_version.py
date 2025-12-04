@@ -1,5 +1,7 @@
+from typing import Optional
 from bl_monitor.command_creator import (
     Command,
+    CommandExecutionResponse,
     CommandIDs,
     CommandInfo,
     Packet,
@@ -23,7 +25,9 @@ class CommandGetBootloaderVersion(Command):
             nemonic="Get Bootloader Version",
         )
 
-    def handle_response(self, response_packet: Packet) -> dict:
+    def handle_response(
+        self, response_packet: Packet
+    ) -> Optional[CommandExecutionResponse]:
         """
         Handle GET_VERSION response.
 
@@ -44,13 +48,13 @@ class CommandGetBootloaderVersion(Command):
                 'error_code': int (if NACK)
             }
         """
-        print(f"{'=' * 60}")
-        print(f"HANDLING GET_VERSION RESPONSE")
+        print(f"HANDLING {self.info.nemonic}")
         print(f"{'=' * 60}")
 
-        result = {}
+        response = CommandExecutionResponse()
 
         # Check if ACK
+        response = CommandExecutionResponse()
         if response_packet.id == ResponseType.B_ACK.value:
             print(f"[HANDLER] Received: ACK")
 
@@ -59,15 +63,17 @@ class CommandGetBootloaderVersion(Command):
                 print(
                     f"[HANDLER] ERROR: Expected 3-byte payload, got {response_packet.length}"
                 )
-                result["success"] = False
-                result["error"] = f"Invalid payload length: {response_packet.length}"
-                return result
+                response.data["error"] = (
+                    f"Invalid payload length: {response_packet.length}"
+                )
+                response.execution_status = False
+                return response
 
             if not response_packet.payload or len(response_packet.payload) < 3:
                 print(f"[HANDLER] ERROR: Payload missing or incomplete")
-                result["success"] = False
-                result["error"] = "Payload missing"
-                return result
+                response.execution_status = False
+                response.data["error"] = "Payload missing"
+                return response
 
             # Parse version
             major = response_packet.payload[0]
@@ -76,17 +82,11 @@ class CommandGetBootloaderVersion(Command):
 
             version_string = f"{major}.{minor}.{patch}"
 
-            print(f"[HANDLER] Version parsed:")
-            print(f"          Major: {major}")
-            print(f"          Minor: {minor}")
-            print(f"          Patch: {patch}")
-            print(f"          Version: {version_string}")
-
-            result["success"] = True
-            result["version"] = version_string
-            result["major"] = major
-            result["minor"] = minor
-            result["patch"] = patch
+            response.execution_status = True
+            response.data["version"] = version_string
+            response.data["major"] = major
+            response.data["minor"] = minor
+            response.data["patch"] = patch
 
         # Check if NACK
         elif response_packet.id == ResponseType.B_NACK.value:
@@ -107,17 +107,17 @@ class CommandGetBootloaderVersion(Command):
 
             print(f"[HANDLER] Error code: 0x{error_code:02X} ({error_desc})")
 
-            result["success"] = False
-            result["error_code"] = error_code
-            result["error_desc"] = error_desc
+            response.data["success"] = False
+            response.data["error_code"] = error_code
+            response.data["error_desc"] = error_desc
 
         else:
             print(
                 f"[HANDLER] ERROR: Unexpected response ID: 0x{response_packet.id:02X}"
             )
-            result["success"] = False
-            result["error"] = f"Unexpected response ID: 0x{response_packet.id:02X}"
+            response.data["success"] = False
+            response.data["error"] = (
+                f"Unexpected response ID: 0x{response_packet.id:02X}"
+            )
 
-        print(f"{'=' * 60}\n")
-
-        return result
+        return response

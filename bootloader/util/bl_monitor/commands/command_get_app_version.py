@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from bl_monitor.command_creator import (
     Command,
+    CommandExecutionResponse,
     CommandIDs,
     CommandInfo,
     Packet,
@@ -42,12 +44,15 @@ class CommandGetAppVersion(Command):
             nemonic="Command Get App Version",
         )
 
-    def handle_response(self, response_packet: Packet) -> dict:
+    def handle_response(
+        self, response_packet: Packet
+    ) -> Optional[CommandExecutionResponse]:
+        response = CommandExecutionResponse()
         print(f"{'=' * 60}")
         print(f"HANDLING GET APP_VERSION RESPONSE")
         print(f"{'=' * 60}")
 
-        result = {}
-        version = AppVersion.from_packet(packet=response_packet)
-        print(version)
-        return result
+        response.data = {}
+        response.data["version"] = AppVersion.from_packet(packet=response_packet)
+        response.execution_status = True
+        return response

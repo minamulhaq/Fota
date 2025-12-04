@@ -1,6 +1,7 @@
+import re
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional
 
@@ -38,7 +39,7 @@ class Packet:
             self.payload = []
 
 
-TIMEOUT = 12.0
+TIMEOUT = 1
 
 
 @dataclass
@@ -55,7 +56,18 @@ class CommandInfo:
         return response
 
 
+@dataclass
+class CommandExecutionResponse:
+    execution_status: bool = field(default=False)
+    run_next_command: bool = field(default=False)
+    data: dict = field(default_factory=lambda: dict())
+
+
 class Command(ABC):
+    @property
+    def next_command(self) -> Optional["Command"]:
+        return None
+
     @property
     @abstractmethod
     def cmd_id(self) -> CommandIDs: ...
@@ -100,7 +112,9 @@ class Command(ABC):
         return 4
 
     @abstractmethod
-    def handle_response(self, response_packet: Packet) -> dict:
+    def handle_response(
+        self, response_packet: Packet
+    ) -> Optional[CommandExecutionResponse]:
         """
         Handle the validated response packet.
         Each command implements its own response handling logic.
@@ -301,29 +315,6 @@ class Command(ABC):
         response = self.validate_packet(port=port, response_buffer=response_buffer)
         return response
 
-    def validate_packet(self, port: Serial, response_buffer: bytearray):
-        validated_packet: Packet | None = self.receive_response_packet(
-            bytes(response_buffer)
-        )
-
-        if not validated_packet:
-            print(
-                "\n[ERROR] Packet validation failed (CRC mismatch or malformed), request retransmit !!!"
-            )
-
-            return None
-        elif validated_packet.id == ResponseType.B_RETRANSMIT.value:
-            print("\n[RETRANSMIT] Last packet CRC Failed, retransmit")
-            return None
-
-        parsed_result = self.handle_response(validated_packet)
-
-        print(f"{'=' * 70}")
-        print("COMMAND EXECUTION COMPLETE")
-        print(f"{'=' * 70}\n")
-
-        return parsed_result
-
     def read_byte_with_timeout(self, port: Serial, timeout_sec=2.0) -> Optional[int]:
         """Wait for single byte with timeout"""
         start_time = time.time()
@@ -400,3 +391,23 @@ class Command(ABC):
         print(f"\n[RX] ✓ Complete packet received ({len(response_buffer)} bytes)")
         print(f"[RX] Raw data: {' '.join([f'{b:02X}' for b in response_buffer])}")
         return response_buffer
+
+    def validate_packet(self, port: Serial, response_buffer: bytearray):
+        validated_packet: Packet | None = self.receive_response_packet(
+            bytes(response_buffer)
+        )
+
+        if not validated_packet:
+            print(
+                "\n[ERROR] Packet validation failed (CRC mismatch or malformed), request retransmit !!!"
+            )
+
+            return None
+        elif validated_packet.id == ResponseType.B_RETRANSMIT.value:
+            print("\n[RETRANSMIT] Last packet CRC Failed, retransmit")
+            return None
+
+        response: Optional[CommandExecutionResponse] = self.handle_response(
+            response_packet=validated_packet
+        )
+        print(response)

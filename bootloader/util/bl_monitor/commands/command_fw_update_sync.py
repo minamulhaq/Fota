@@ -1,7 +1,8 @@
-from dataclasses import dataclass
+from typing import Optional
 
 from bl_monitor.command_creator import (
     Command,
+    CommandExecutionResponse,
     CommandIDs,
     CommandInfo,
     Packet,
@@ -10,6 +11,10 @@ from bl_monitor.command_creator import (
 
 
 class CommandFWUpdateSync(Command):
+    @property
+    def next_command(self) -> Optional["Command"]:
+        return None
+
     @property
     def cmd_id(self) -> CommandIDs:
         return CommandIDs.B_CMD_SYNC
@@ -25,10 +30,19 @@ class CommandFWUpdateSync(Command):
             nemonic="Command FW Update Sync",
         )
 
-    def handle_response(self, response_packet: Packet) -> dict:
+    def handle_response(self, response_packet: Packet) -> CommandExecutionResponse:
         print(f"{'=' * 60}")
         print(f"HANDLING {self.info.nemonic}")
         print(f"{'=' * 60}")
 
-        result = {}
-        return result
+        response = CommandExecutionResponse()
+        if response_packet.payload:
+            response.execution_status = (
+                response_packet.payload[0] == ResponseType.B_ACK.value
+            )
+
+        print(f"{'=' * 70}")
+        print("COMMAND EXECUTION COMPLETE")
+        print(f"{'=' * 70}\n")
+
+        return CommandExecutionResponse(execution_status=True, run_next_command=True)

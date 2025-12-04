@@ -1,9 +1,9 @@
 from bl_monitor.command_creator import (
     Command,
+    CommandExecutionResponse,
     CommandIDs,
     CommandInfo,
     Packet,
-    ResponseType,
 )
 
 
@@ -24,5 +24,5 @@ class CommandRetransmit(Command):
             nemonic="Retransmit command",
         )
 
-    def handle_response(self, response_packet: Packet) -> dict:
-        return {}
+    def handle_response(self, response_packet: Packet) -> CommandExecutionResponse:
+        return CommandExecutionResponse()
