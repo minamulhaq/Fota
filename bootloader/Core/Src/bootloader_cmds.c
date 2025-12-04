@@ -1,10 +1,6 @@
 
 #include "bootloader_cmds.h"
-
-#include "bootloader.h"
-#include "string.h"
 #include "usart.h"
-#include "stdlib.h"
 
 static void
 cmd_get_bootloader_version_process(comms_packet_t *const last_received_packet,
@@ -27,6 +23,15 @@ cmd_get_app_version_process(comms_packet_t *const last_received_packet,
 	response_packet->command_id = B_ACK;
 	response_packet->length = sizeof(version_t);
 	memcpy(response_packet->payload, &v, sizeof(version_t));
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
+static void cmd_synced_process(comms_packet_t *const last_received_packet,
+			       comms_packet_t *const response_packet)
+{
+	response_packet->command_id = B_ACK;
+	response_packet->length = 0;
 	uint32_t crc = bootloader_compute_crc(response_packet);
 	response_packet->crc = crc;
 }
@@ -57,6 +62,10 @@ static bootloader_cmd_t RESPONSE_GET_APP_VERSION = {
 	.command_id = B_CMD_GET_APP_VERSION,
 	.process = cmd_get_app_version_process
 };
+
+static bootloader_cmd_t RESPONSE_SEND_SYNCED = { .command_id = B_CMD_SYNC,
+						 .process =
+							 cmd_synced_process };
 
 static bootloader_cmd_t RESPONSE_REQUEST_CLIENT_RETRANSMIT_REQUEST = {
 	.command_id = B_RETRANSMIT,
@@ -92,8 +101,13 @@ bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet)
 		break;
 	}
 
+	case B_CMD_SYNC: {
+		cmd = &RESPONSE_SEND_SYNCED;
+		break;
+	}
+
 	default:
-		cmd = NULL;
+		cmd = &RESPONSE_SEND_SYNCED;
 		break;
 	}
 	return cmd;

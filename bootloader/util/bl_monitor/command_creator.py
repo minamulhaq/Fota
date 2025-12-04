@@ -1,7 +1,11 @@
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Optional
+
+from serial import Serial
+from serial.tools import list_ports
 
 
 class ResponseType(Enum):
@@ -14,6 +18,7 @@ class CommandIDs(Enum):
     B_CMD_RETRANSMIT = 0xB0
     B_CMD_GET_BOOTLOADER_VERSION = 0xB1
     B_CMD_GET_APP_VERSION = auto()
+    B_CMD_SYNC = auto()
     B_CMD_GET_HELP = auto()
     B_CMD_GET_CID = auto()
     B_CMD_GET_RDP_LVL = auto()
@@ -31,6 +36,9 @@ class Packet:
     def __post_init__(self):
         if self.payload is None:
             self.payload = []
+
+
+TIMEOUT = 12.0
 
 
 @dataclass
@@ -235,3 +243,160 @@ class Command(ABC):
         )
 
         return packet
+
+    def send_command(self, port: Serial) -> Optional[dict]:
+        """
+        Send command and receive response with byte-by-byte parsing.
+        Matches STM32 transmission: ID → Length → Payload (if len>0) → CRC32
+
+        Returns:
+            dict: Parsed response from command handler, or None on failure
+        """
+        if not port or not port.is_open:
+            print("[SEND] ERROR: Port not open")
+            return None
+
+        assert port
+        # Step 1: Display command info
+        print(f"\n{'=' * 70}")
+        print("EXECUTING COMMAND")
+        print(f"{'=' * 70}")
+        print(self.info)
+        print()
+
+        # Step 2: Get command bytes
+        raw_cmd = self.cmd
+
+        print("[TX] Command Packet Breakdown:")
+        print(f"     Total bytes: {len(raw_cmd)}")
+        print(f"     ID:          0x{raw_cmd[0]:02X}")
+        print(f"     Length:      {raw_cmd[1]}")
+
+        if raw_cmd[1] > 0:
+            payload_bytes = raw_cmd[2 : 2 + raw_cmd[1]]
+            print(f"     Payload:     {' '.join([f'{b:02X}' for b in payload_bytes])}")
+        else:
+            print("     Payload:     None")
+
+        crc_bytes = raw_cmd[-4:]
+        crc_value = int.from_bytes(crc_bytes, byteorder="little")
+        print(
+            f"     CRC32:       {' '.join([f'{b:02X}' for b in crc_bytes])} (LE) = 0x{crc_value:08X}"
+        )
+        print(f"\n[TX] Raw bytes: {' '.join([f'{b:02X}' for b in raw_cmd])}")
+
+        # Step 3: Clear buffers and send command
+        port.reset_input_buffer()
+        port.reset_output_buffer()
+
+        bytes_sent = port.write(raw_cmd)
+        port.flush()
+        print(f"[TX] ✓ Sent {bytes_sent}/{len(raw_cmd)} bytes")
+
+        # Step 4: Receive response byte-by-byte
+        print(f"\n[RX] Receiving response packet...")
+
+        response_buffer = self.receive_raw_packet(port)
+        assert response_buffer
+        response = self.validate_packet(port=port, response_buffer=response_buffer)
+        return response
+
+    def validate_packet(self, port: Serial, response_buffer: bytearray):
+        validated_packet: Packet | None = self.receive_response_packet(
+            bytes(response_buffer)
+        )
+
+        if not validated_packet:
+            print(
+                "\n[ERROR] Packet validation failed (CRC mismatch or malformed), request retransmit !!!"
+            )
+
+            return None
+        elif validated_packet.id == ResponseType.B_RETRANSMIT.value:
+            print("\n[RETRANSMIT] Last packet CRC Failed, retransmit")
+            return None
+
+        parsed_result = self.handle_response(validated_packet)
+
+        print(f"{'=' * 70}")
+        print("COMMAND EXECUTION COMPLETE")
+        print(f"{'=' * 70}\n")
+
+        return parsed_result
+
+    def read_byte_with_timeout(self, port: Serial, timeout_sec=2.0) -> Optional[int]:
+        """Wait for single byte with timeout"""
+        start_time = time.time()
+        while (time.time() - start_time) < timeout_sec:
+            assert port
+            if port.in_waiting > 0:
+                byte = port.read(1)
+                return byte[0] if byte else None
+            time.sleep(0.01)  # Small delay to prevent busy-waiting
+        return None
+
+    def receive_raw_packet(self, port: Serial):
+        response_buffer = bytearray([])
+
+        print("[RX] - Reading ID byte...")
+        packet_id = self.read_byte_with_timeout(port, TIMEOUT)
+
+        if packet_id is None:
+            print("[RX] ✗ Timeout waiting for ID byte")
+            return None
+
+        response_buffer.append(packet_id)
+        print(f"[RX]   ID = 0x{packet_id:02X} ({hex(packet_id)})")
+
+        print("[RX] - Reading Length byte...")
+        payload_length = self.read_byte_with_timeout(port, TIMEOUT)
+
+        if payload_length is None:
+            print("[RX] ✗ Timeout waiting for Length byte")
+            return None
+
+        response_buffer.append(payload_length)
+        print(f"[RX]   Length = {payload_length} bytes")
+
+        if payload_length > 0:
+            print(f"[RX] - Reading {payload_length} payload bytes...")
+
+            for i in range(payload_length):
+                payload_byte = self.read_byte_with_timeout(port, TIMEOUT)
+
+                if payload_byte is None:
+                    print(
+                        f"[RX] ✗ Timeout waiting for payload byte {i + 1}/{payload_length}"
+                    )
+                    return None
+
+                response_buffer.append(payload_byte)
+
+                if (i + 1) % 16 == 0 or (i + 1) == payload_length:
+                    payload_so_far = " ".join([f"{b:02X}" for b in response_buffer[2:]])
+                    print(
+                        f"[RX]   Payload [{i + 1}/{payload_length}]: {payload_so_far}"
+                    )
+        else:
+            print("[RX] - No payload (length = 0)")
+
+        print("[RX] - Reading 4 CRC32 bytes...")
+
+        for i in range(4):
+            crc_byte = self.read_byte_with_timeout(port=port, timeout_sec=TIMEOUT)
+
+            if crc_byte is None:
+                print(f"[RX] ✗ Timeout waiting for CRC byte {i + 1}/4")
+                return None
+
+            response_buffer.append(crc_byte)
+
+        crc_bytes_rx = response_buffer[-4:]
+        crc_value_rx = int.from_bytes(crc_bytes_rx, byteorder="little")
+        print(
+            f"[RX]   CRC32 = {' '.join([f'{b:02X}' for b in crc_bytes_rx])} (LE) = 0x{crc_value_rx:08X}"
+        )
+
+        print(f"\n[RX] ✓ Complete packet received ({len(response_buffer)} bytes)")
+        print(f"[RX] Raw data: {' '.join([f'{b:02X}' for b in response_buffer])}")
+        return response_buffer

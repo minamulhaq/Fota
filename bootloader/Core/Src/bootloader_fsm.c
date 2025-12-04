@@ -4,6 +4,7 @@
 #include "msg_printer.h"
 
 extern Event byte_received_event;
+extern Event event_sync_requested;
 extern Event entry_event;
 extern Event exit_event;
 extern Event init_event;
@@ -33,15 +34,24 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 		comms_packet_t *last_received_packet = comm_get_last_packet();
 		bootloader_cmd_t *handle =
 			get_command_handle(last_received_packet);
-		if (handle == NULL) {
-			status = FSM_TRANSIT_TO(comm_state_id);
+		if (handle->command_id == B_CMD_SYNC) {
+			Fsm_dispatch(me, &event_sync_requested);
+			status = STATE_HANDLED;
 		} else {
+			if (handle == NULL) {
+				status = FSM_TRANSIT_TO(comm_state_id);
+			}
 			comms_packet_t response_packet = { 0 };
 			handle->process(last_received_packet, &response_packet);
 			bootlader_send_response_packet(&response_packet);
 
 			status = FSM_TRANSIT_TO(comm_state_id);
 		}
+		break;
+	}
+
+	case SIGNAL_SYNC_REQUESTED: {
+		status = FSM_TRANSIT_TO(bootloader_fw_update_init);
 		break;
 	}
 
@@ -61,6 +71,23 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 	default:
 		status = STATE_IGNORED;
 		break;
+	}
+	return status;
+}
+
+status_t bootloader_fw_update_init(bootloader_fsm_t *me, Event const *const e)
+{
+	status_t status;
+	switch (e->sig) {
+	case SIGNAL_ENTRY: {
+		status = STATE_HANDLED;
+		status = FSM_TRANSIT_TO(comm_state_id);
+		break;
+	}
+	case SIGNAL_EXIT: {
+		status = STATE_HANDLED;
+		break;
+	}
 	}
 	return status;
 }
