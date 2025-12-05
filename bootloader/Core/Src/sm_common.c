@@ -11,6 +11,8 @@ Event const event_sync_requested = { SIGNAL_SYNC_REQUESTED };
 
 status_t hsm_top_status(Fsm *const me, Event const *const e)
 {
+	(void)me;
+	(void)e;
 	return STATE_IGNORED;
 }
 void Fsm_ctor(Fsm *const me, StateHandler initial)

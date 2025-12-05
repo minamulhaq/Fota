@@ -229,7 +229,7 @@ void bootloader_setup(void)
 
 void register_rx_it(void)
 {
-	HAL_StatusTypeDef status = HAL_UART_Receive_IT(&huart2, &buf, 1);
+	HAL_UART_Receive_IT(&huart2, &buf, 1);
 }
 
 void bootloader_usart_rx_cb(UART_HandleTypeDef *huart)

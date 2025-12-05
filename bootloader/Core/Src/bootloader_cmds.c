@@ -6,6 +6,7 @@ static void
 cmd_get_bootloader_version_process(comms_packet_t *const last_received_packet,
 				   comms_packet_t *const response_packet)
 {
+	(void)last_received_packet;
 	response_packet->command_id = B_ACK;
 	response_packet->length = sizeof(bootloader_version);
 	memcpy(response_packet->payload, &bootloader_version,
@@ -18,6 +19,7 @@ static void
 cmd_get_app_version_process(comms_packet_t *const last_received_packet,
 			    comms_packet_t *const response_packet)
 {
+	(void)last_received_packet;
 	version_t v = { 0 };
 	bootloader_read_app_version(&v);
 	response_packet->command_id = B_ACK;
@@ -30,6 +32,7 @@ cmd_get_app_version_process(comms_packet_t *const last_received_packet,
 static void cmd_synced_process(comms_packet_t *const last_received_packet,
 			       comms_packet_t *const response_packet)
 {
+	(void)last_received_packet;
 	response_packet->command_id = B_ACK;
 	response_packet->length = 0;
 	uint32_t crc = bootloader_compute_crc(response_packet);
@@ -40,6 +43,7 @@ static void
 cmd_retransmit_last_packet(comms_packet_t *const last_received_packet,
 			   comms_packet_t *const response_packet)
 {
+	(void)last_received_packet;
 	bootlader_get_last_transmitted_packet(response_packet);
 }
 
@@ -47,6 +51,7 @@ static void
 retransmit_response_handle(comms_packet_t *const last_received_packet,
 			   comms_packet_t *const response_packet)
 {
+	(void)last_received_packet;
 	response_packet->command_id = B_RETRANSMIT;
 	response_packet->length = 0U;
 	uint32_t crc = bootloader_compute_crc(response_packet);

@@ -35,7 +35,7 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 		bootloader_cmd_t *handle =
 			get_command_handle(last_received_packet);
 		if (handle->command_id == B_CMD_SYNC) {
-			Fsm_dispatch(me, &event_sync_requested);
+			Fsm_dispatch((Fsm*)me, &event_sync_requested);
 			status = STATE_HANDLED;
 		} else {
 			if (handle == NULL) {
