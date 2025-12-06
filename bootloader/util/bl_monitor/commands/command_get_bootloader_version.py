@@ -1,5 +1,6 @@
 from typing import Optional
-from bl_monitor.command_creator import (
+
+from bl_monitor.command import (
     Command,
     CommandExecutionResponse,
     CommandIDs,

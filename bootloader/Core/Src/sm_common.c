@@ -37,8 +37,4 @@ void Fsm_dispatch(Fsm *const me, Event const *const e)
 		(prev)(me, &exit_event);
 		(*me->state)(me, &entry_event);
 	}
-
-	while (status == STATE_SUPER) {
-		status = (*me->super_state)(me, e);
-	}
 }

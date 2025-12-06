@@ -12,11 +12,16 @@ typedef enum {
 
 } bootloader_response_type_t;
 
+typedef enum bootloader_cmd_error_codes {
+	ERROR_INVALID_COMMAND = 0x11
+} bootloader_cmd_error_codes_t;
+
 typedef enum {
 	B_CMD_RETRANSMIT_LAST_PACKET_TO_CLIENT = 0xB0,
-	B_CMD_GET_BOOTLOADER_VERSION = 0xB1,
-	B_CMD_GET_APP_VERSION = 0xB2,
-	B_CMD_SYNC = 0xB3,
+	B_CMD_GET_BOOTLOADER_VERSION,
+	B_CMD_GET_APP_VERSION,
+	B_CMD_GET_CHIP_ID,
+	B_CMD_SYNC,
 	// B_CMD_GET_HELP = 0xB2,
 	// B_CMD_GET_CID = 0xB3,
 	// B_CMD_GET_RDP_LVL = 0xB4,

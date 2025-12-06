@@ -14,6 +14,19 @@ void bootloader_fsm_ctr(bootloader_fsm_t *me, StateHandler initial)
 	Fsm_ctor(&me->fsm, initial);
 }
 
+static bool bootloader_handle_packet(void)
+{
+	comms_packet_t *last_received_packet = comm_get_last_packet();
+	bootloader_cmd_t *handle = get_command_handle(last_received_packet);
+	if (handle != NULL) {
+		comms_packet_t response_packet = { 0 };
+		handle->process(last_received_packet, &response_packet);
+		bootlader_send_response_packet(&response_packet);
+		return true;
+	}
+	return false;
+}
+
 status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 					 Event const *const e)
 {
@@ -25,7 +38,7 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 	}
 
 	case SIGNAL_EXIT: {
-		me->packet_status = SIGNAL_PACKET_NOT_READY;
+		// me->packet_status = SIGNAL_PACKET_NOT_READY;
 		status = STATE_HANDLED;
 		break;
 	}
@@ -35,23 +48,19 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 		bootloader_cmd_t *handle =
 			get_command_handle(last_received_packet);
 		if (handle->command_id == B_CMD_SYNC) {
-			Fsm_dispatch((Fsm*)me, &event_sync_requested);
-			status = STATE_HANDLED;
+			status = FSM_TRANSIT_TO(
+				bootloader_fw_update_sync_request);
 		} else {
-			if (handle == NULL) {
-				status = FSM_TRANSIT_TO(comm_state_id);
-			}
-			comms_packet_t response_packet = { 0 };
-			handle->process(last_received_packet, &response_packet);
-			bootlader_send_response_packet(&response_packet);
-
+			bootloader_handle_packet();
+			// if (handle != NULL) {
+			// 	comms_packet_t response_packet = { 0 };
+			// 	handle->process(last_received_packet,
+			// 			&response_packet);
+			// 	bootlader_send_response_packet(
+			// 		&response_packet);
+			// }
 			status = FSM_TRANSIT_TO(comm_state_id);
 		}
-		break;
-	}
-
-	case SIGNAL_SYNC_REQUESTED: {
-		status = FSM_TRANSIT_TO(bootloader_fw_update_init);
 		break;
 	}
 
@@ -60,9 +69,10 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 		if (handle == NULL) {
 			status = FSM_TRANSIT_TO(comm_state_id);
 		} else {
-			comms_packet_t response_packet = { 0 };
-			handle->process(NULL, &response_packet);
-			bootlader_send_response_packet(&response_packet);
+			bootloader_handle_packet();
+			// comms_packet_t response_packet = { 0 };
+			// handle->process(NULL, &response_packet);
+			// bootlader_send_response_packet(&response_packet);
 			status = FSM_TRANSIT_TO(comm_state_id);
 		}
 		break;
@@ -75,12 +85,14 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 	return status;
 }
 
-status_t bootloader_fw_update_init(bootloader_fsm_t *me, Event const *const e)
+status_t bootloader_fw_update_sync_request(bootloader_fsm_t *me,
+					   Event const *const e)
 {
 	status_t status;
 	switch (e->sig) {
 	case SIGNAL_ENTRY: {
-		status = STATE_HANDLED;
+		bootloader_handle_packet();
+		me->packet_status = SIGNAL_PACKET_NOT_READY;
 		status = FSM_TRANSIT_TO(comm_state_id);
 		break;
 	}

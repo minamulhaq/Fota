@@ -29,12 +29,37 @@ cmd_get_app_version_process(comms_packet_t *const last_received_packet,
 	response_packet->crc = crc;
 }
 
+static void
+cmd_synced_nack_invalid_command(comms_packet_t *const last_received_packet,
+				comms_packet_t *const response_packet)
+{
+	(void)last_received_packet;
+	response_packet->command_id = B_NACK;
+	response_packet->length = 1;
+	response_packet->payload[0] = ERROR_INVALID_COMMAND;
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
 static void cmd_synced_process(comms_packet_t *const last_received_packet,
 			       comms_packet_t *const response_packet)
 {
 	(void)last_received_packet;
 	response_packet->command_id = B_ACK;
 	response_packet->length = 0;
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
+static void cmd_get_chip_id_process(comms_packet_t *const last_received_packet,
+				    comms_packet_t *const response_packet)
+{
+	(void)last_received_packet;
+	response_packet->command_id = B_ACK;
+	uint16_t chip_id = DBGMCU->IDCODE & 0xFFFF;
+	response_packet->payload[0] = (uint8_t)(chip_id & 0xFF);
+	response_packet->payload[1] = (uint8_t)((chip_id >> 8) & 0xFF);
+	response_packet->length = 2;
 	uint32_t crc = bootloader_compute_crc(response_packet);
 	response_packet->crc = crc;
 }
@@ -71,6 +96,15 @@ static bootloader_cmd_t RESPONSE_GET_APP_VERSION = {
 static bootloader_cmd_t RESPONSE_SEND_SYNCED = { .command_id = B_CMD_SYNC,
 						 .process =
 							 cmd_synced_process };
+
+static bootloader_cmd_t RESPONSE_SEND_CHIP_ID = {
+	.command_id = B_CMD_GET_CHIP_ID,
+	.process = cmd_get_chip_id_process
+};
+
+static bootloader_cmd_t RESPONSE_SEND_NACK_INVALID_COMMAND = {
+	.process = cmd_synced_nack_invalid_command
+};
 
 static bootloader_cmd_t RESPONSE_REQUEST_CLIENT_RETRANSMIT_REQUEST = {
 	.command_id = B_RETRANSMIT,
@@ -111,10 +145,16 @@ bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet)
 		break;
 	}
 
-	default:
-		cmd = &RESPONSE_SEND_SYNCED;
+	case B_CMD_GET_CHIP_ID: {
+		cmd = &RESPONSE_SEND_CHIP_ID;
 		break;
 	}
+
+	default:
+		cmd = &RESPONSE_SEND_NACK_INVALID_COMMAND;
+		break;
+	}
+
 	return cmd;
 }
 

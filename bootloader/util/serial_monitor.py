@@ -1,4 +1,3 @@
-import time
 from typing import Optional
 
 from bl_monitor import (
@@ -12,8 +11,8 @@ from bl_monitor import (
     CommandJumpToAddress,
     CommandRetransmit,
     Packet,
+    ResponseType,
 )
-from bl_monitor.command_creator import ResponseType
 from serial import Serial
 from serial.tools import list_ports
 
@@ -33,7 +32,8 @@ class SerialMonitor:
             1: CommandRetransmit(),
             2: CommandGetBootloaderVersion(),
             3: CommandGetAppVersion(),
-            4: CommandFWUpdateSync(),
+            4: CommandGetChipID(),
+            5: CommandFWUpdateSync(),
         }
 
     def scan_com_ports(self) -> Optional[Serial]:

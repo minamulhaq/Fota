@@ -1,4 +1,3 @@
-import re
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -9,6 +8,10 @@ from serial import Serial
 from serial.tools import list_ports
 
 
+class ErrorCodes(Enum):
+    ERROR_INVALID_COMMAND = 0x11
+
+
 class ResponseType(Enum):
     B_ACK = 0xE0
     B_NACK = 0xE1
@@ -17,8 +20,9 @@ class ResponseType(Enum):
 
 class CommandIDs(Enum):
     B_CMD_RETRANSMIT = 0xB0
-    B_CMD_GET_BOOTLOADER_VERSION = 0xB1
+    B_CMD_GET_BOOTLOADER_VERSION = auto()
     B_CMD_GET_APP_VERSION = auto()
+    B_CMD_GET_CHIP_ID = auto()
     B_CMD_SYNC = auto()
     B_CMD_GET_HELP = auto()
     B_CMD_GET_CID = auto()
@@ -38,6 +42,18 @@ class Packet:
         if self.payload is None:
             self.payload = []
 
+    def __str__(self) -> str:
+        response = f"id: 0x{self.id:04X}\n".upper()
+        response += f"length: {self.length}\n"
+        if self.payload:
+            response += f"payload: {[hex(x) for x in self.payload]}\n"
+        else:
+            response += f"payload: {[]}\n"
+
+        response += f"crc: {hex(self.crc32)}\n"
+
+        return response
+
 
 TIMEOUT = 1
 
@@ -49,11 +65,8 @@ class CommandInfo:
     # description: str
 
     def __str__(self) -> str:
-        return f"id: {self.id:#04x} | {self.nemonic}"
-        response = f"Command: {self.nemonic}\n"
-        response += f"ID: 0x{hex(self.id):2x}\n"
-        response += f"Description: {self.description}"
-        return response
+        cid = f"{self.id:#04x}".upper()
+        return f"id: {cid} | {self.nemonic}"
 
 
 @dataclass
@@ -407,7 +420,20 @@ class Command(ABC):
             print("\n[RETRANSMIT] Last packet CRC Failed, retransmit")
             return None
 
-        response: Optional[CommandExecutionResponse] = self.handle_response(
-            response_packet=validated_packet
-        )
-        print(response)
+        if self.is_ack(validated_packet):
+            response: Optional[CommandExecutionResponse] = self.handle_response(
+                response_packet=validated_packet
+            )
+            if response:
+                print(response)
+                if response.run_next_command:
+                    print("Running next command")
+        else:
+            self.handle_nack(validated_packet)
+
+    def handle_nack(self, packet: Packet):
+        assert packet.payload
+        print(f"Nack received | Error: {ErrorCodes(packet.payload[0]).name}")
+
+    def is_ack(self, packet: Packet) -> bool:
+        return ResponseType(packet.id) == ResponseType.B_ACK
