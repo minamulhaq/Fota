@@ -122,3 +122,7 @@ class CommandGetBootloaderVersion(Command):
             )
 
         return response
+
+    def getinput(self) -> None:
+        raise NotImplementedError
+

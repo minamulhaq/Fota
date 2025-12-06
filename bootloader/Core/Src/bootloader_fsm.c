@@ -47,7 +47,7 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 		comms_packet_t *last_received_packet = comm_get_last_packet();
 		bootloader_cmd_t *handle =
 			get_command_handle(last_received_packet);
-		if (handle->command_id == B_CMD_SYNC) {
+		if (handle->command_id == B_CMD_FW_SYNC) {
 			status = FSM_TRANSIT_TO(
 				bootloader_fw_update_sync_request);
 		} else {

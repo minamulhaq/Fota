@@ -41,11 +41,23 @@ cmd_synced_nack_invalid_command(comms_packet_t *const last_received_packet,
 	response_packet->crc = crc;
 }
 
-static void cmd_synced_process(comms_packet_t *const last_received_packet,
-			       comms_packet_t *const response_packet)
+static void cmd_fw_synced_process(comms_packet_t *const last_received_packet,
+				  comms_packet_t *const response_packet)
 {
 	(void)last_received_packet;
 	response_packet->command_id = B_ACK;
+	response_packet->length = 0;
+	uint32_t crc = bootloader_compute_crc(response_packet);
+	response_packet->crc = crc;
+}
+
+static void
+cmd_fw_verify_device_id_process(comms_packet_t *const last_received_packet,
+				comms_packet_t *const response_packet)
+{
+	uint16_t chip_id = DBGMCU->IDCODE & 0xFFFF;
+	bool is_valid = *(uint16_t *)(&last_received_packet->payload) == chip_id;
+	response_packet->command_id = is_valid ? B_ACK : B_NACK;
 	response_packet->length = 0;
 	uint32_t crc = bootloader_compute_crc(response_packet);
 	response_packet->crc = crc;
@@ -93,9 +105,15 @@ static bootloader_cmd_t RESPONSE_GET_APP_VERSION = {
 	.process = cmd_get_app_version_process
 };
 
-static bootloader_cmd_t RESPONSE_SEND_SYNCED = { .command_id = B_CMD_SYNC,
-						 .process =
-							 cmd_synced_process };
+static bootloader_cmd_t RESPONSE_FW_SEND_SYNCED = {
+	.command_id = B_CMD_FW_SYNC,
+	.process = cmd_fw_synced_process
+};
+
+static bootloader_cmd_t RESPONSE_FW_SEND_VERIFY_DEVICE_ID = {
+	.command_id = B_CMD_FW_VERIFY_DEVICE_ID,
+	.process = cmd_fw_verify_device_id_process
+};
 
 static bootloader_cmd_t RESPONSE_SEND_CHIP_ID = {
 	.command_id = B_CMD_GET_CHIP_ID,
@@ -140,13 +158,18 @@ bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet)
 		break;
 	}
 
-	case B_CMD_SYNC: {
-		cmd = &RESPONSE_SEND_SYNCED;
+	case B_CMD_GET_CHIP_ID: {
+		cmd = &RESPONSE_SEND_CHIP_ID;
 		break;
 	}
 
-	case B_CMD_GET_CHIP_ID: {
-		cmd = &RESPONSE_SEND_CHIP_ID;
+	case B_CMD_FW_SYNC: {
+		cmd = &RESPONSE_FW_SEND_SYNCED;
+		break;
+	}
+
+	case B_CMD_FW_VERIFY_DEVICE_ID: {
+		cmd = &RESPONSE_FW_SEND_VERIFY_DEVICE_ID;
 		break;
 	}
 

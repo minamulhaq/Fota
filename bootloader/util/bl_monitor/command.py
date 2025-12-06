@@ -24,6 +24,7 @@ class CommandIDs(Enum):
     B_CMD_GET_APP_VERSION = auto()
     B_CMD_GET_CHIP_ID = auto()
     B_CMD_SYNC = auto()
+    B_CMD_VERIFY_DEVICE_ID = auto()
     B_CMD_GET_HELP = auto()
     B_CMD_GET_CID = auto()
     B_CMD_GET_RDP_LVL = auto()
@@ -271,6 +272,9 @@ class Command(ABC):
 
         return packet
 
+    @abstractmethod
+    def getinput(self) -> None: ...
+
     def send_command(self, port: Serial) -> Optional[dict]:
         """
         Send command and receive response with byte-by-byte parsing.
@@ -289,7 +293,8 @@ class Command(ABC):
         print("EXECUTING COMMAND")
         print(f"{'=' * 70}")
         print(self.info)
-        print()
+
+        self.getinput()
 
         # Step 2: Get command bytes
         raw_cmd = self.cmd
@@ -426,8 +431,8 @@ class Command(ABC):
             )
             if response:
                 print(response)
-                if response.run_next_command:
-                    print("Running next command")
+                if response.run_next_command and self.next_command:
+                    self.next_command.send_command(port=port)
         else:
             self.handle_nack(validated_packet)
 

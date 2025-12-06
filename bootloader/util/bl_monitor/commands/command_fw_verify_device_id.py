@@ -8,30 +8,34 @@ from bl_monitor.command import (
     Packet,
     ResponseType,
 )
-from bl_monitor.commands.command_fw_verify_device_id import CommandFWVerifyDeviceID
 
 
-class CommandFWUpdateSync(Command):
+class CommandFWVerifyDeviceID(Command):
+    def __init__(self) -> None:
+        super().__init__()
+        self.device_id: int
+
     @property
     def next_command(self) -> Optional["Command"]:
-        return CommandFWVerifyDeviceID()
+        return None
 
     @property
     def cmd_id(self) -> CommandIDs:
-        return CommandIDs.B_CMD_SYNC
+        return CommandIDs.B_CMD_VERIFY_DEVICE_ID
 
     @property
     def packet(self) -> Packet:
-        return Packet(id=self.cmd_id.value, length=0)
-
-    def getinput(self) -> None:
-        return
+        return Packet(
+            id=self.cmd_id.value,
+            payload=list(self.device_id.to_bytes(2, byteorder="little")),
+            length=2,
+        )
 
     @property
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=self.cmd_id.value,
-            nemonic="Command FW Update Sync",
+            nemonic="Command FW Verify Device ID",
         )
 
     def handle_response(self, response_packet: Packet) -> CommandExecutionResponse:
@@ -50,3 +54,8 @@ class CommandFWUpdateSync(Command):
         print(f"{'=' * 70}\n")
 
         return CommandExecutionResponse(execution_status=True, run_next_command=True)
+
+    def getinput(self) -> None:
+        self.device_id = 0x6415
+        input("Enter Device ID: 0x")
+        print(f"Device ID is set to: {hex(self.device_id)}")

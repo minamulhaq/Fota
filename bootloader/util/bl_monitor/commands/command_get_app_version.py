@@ -56,3 +56,7 @@ class CommandGetAppVersion(Command):
         response.data["version"] = AppVersion.from_packet(packet=response_packet)
         response.execution_status = True
         return response
+
+    def getinput(self) -> None:
+        raise NotImplementedError
+

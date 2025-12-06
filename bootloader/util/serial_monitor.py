@@ -3,6 +3,7 @@ from typing import Optional
 from bl_monitor import (
     Command,
     CommandFWUpdateSync,
+    CommandFWVerifyDeviceID,
     CommandGetAppVersion,
     CommandGetBootloaderVersion,
     CommandGetChipID,
@@ -34,6 +35,7 @@ class SerialMonitor:
             3: CommandGetAppVersion(),
             4: CommandGetChipID(),
             5: CommandFWUpdateSync(),
+            6: CommandFWVerifyDeviceID(),
         }
 
     def scan_com_ports(self) -> Optional[Serial]:
@@ -109,12 +111,6 @@ class SerialMonitor:
             return None
 
         assert self.port
-        # Step 1: Display command info
-        print(f"\n{'=' * 70}")
-        print("EXECUTING COMMAND")
-        print(f"{'=' * 70}")
-        print(cmd.info)
-        print()
         cmd.send_command(port=self.port)
 
     def run(self):

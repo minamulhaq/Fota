@@ -26,3 +26,7 @@ class CommandRetransmit(Command):
 
     def handle_response(self, response_packet: Packet) -> CommandExecutionResponse:
         return CommandExecutionResponse()
+
+    def getinput(self) -> None:
+        raise NotImplementedError
+

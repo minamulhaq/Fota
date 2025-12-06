@@ -14,4 +14,5 @@ from .commands.command_get_help import CommandGetHelp
 from .commands.command_get_rdp_level import CommandGetRDPLevel
 from .commands.command_jump_to_address import CommandJumpToAddress
 from .commands.command_retransmit import CommandRetransmit
+from .commands.command_fw_verify_device_id import CommandFWVerifyDeviceID
 # from .packet_parser import PacketParser

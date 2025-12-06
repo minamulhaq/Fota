@@ -32,3 +32,7 @@ class CommandGetChipID(Command):
         chip_id_value = int.from_bytes(response_packet.payload, "little")
         response.data["chip_id"] = hex(chip_id_value)
         return response
+
+    def getinput(self) -> None:
+        raise NotImplementedError
+
