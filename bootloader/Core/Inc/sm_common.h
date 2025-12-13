@@ -3,11 +3,11 @@
 
 #include "common_defines.h"
 
-#define MAX_PAYLOAD_SIZE (128)
+#define MAX_PAYLOAD_SIZE (16)
 
 #define PACKET_BYTES_ID (1)
 #define PACKET_BYTES_LENGTH (1)
-#define PACKET_BYTES_PAYLOAD (128)
+#define PACKET_BYTES_PAYLOAD (MAX_PAYLOAD_SIZE)
 #define PACKET_BYTES_CRC (4)
 #define PACKET_LENGTH                                          \
 	(LENGTH_PACKET_BYTES_ID + LENGTH_PACKET_BYTES_LENGTH + \
@@ -58,6 +58,7 @@ typedef enum EventSignals {
 	SIGNAL_PACKET_NOT_READY,
 	SIGNAL_PACKET_VALID,
 	SIGNAL_PACKET_INVALID,
+	SIGNAL_SYNC_REQUESTED,
 	SIGNAL_TIMEOUT,
 	/* ... */
 	SIGNAL_MAX_COUNT

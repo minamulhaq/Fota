@@ -10,32 +10,16 @@ State machine setup to receive command packets
 
 static uint8_t bytes_collected_counter = 0;
 static comms_packet_t temp_packet = { 0 };
-static comms_packet_t last_packet = { 0 };
-static uint8_t payload_buffer;
+static comms_packet_t last_received_packet = { 0 };
 
 extern Event byte_received_event;
 extern Event entry_event;
 extern Event exit_event;
 
-// static comm_context_t COMM_FSM = { 0 };
-
-// status_t comm_state_process_byte(uint8_t *byte, packet_status_t *packet_status)
-// {
-// 	status_t state;
-// 	comm_state_handler prev = COMM_FSM.state;
-// 	assert(COMM_FSM.state != NULL);
-// 	state = (COMM_FSM.state)(&byte_received_event, byte, packet_status);
-// 	if (state == STATE_TRANSITION) {
-// 		(prev)(&exit_event, byte, packet_status);
-// 		(COMM_FSM.state)(&entry_event, byte, packet_status);
-// 	}
-
-// 	return state;
-// }
-
 status_t comm_state_init(bootloader_fsm_t *me, StateHandler initial)
 {
-	FSM_TRANSIT_TO(comm_state_id);
+	(void)initial;
+	return FSM_TRANSIT_TO(comm_state_id);
 }
 
 status_t comm_state_id(bootloader_fsm_t *const me, Event const *const e)
@@ -45,6 +29,7 @@ status_t comm_state_id(bootloader_fsm_t *const me, Event const *const e)
 	case SIGNAL_ENTRY: {
 		bytes_collected_counter = 0;
 		memset(&temp_packet, 0, sizeof(temp_packet));
+		memset(&temp_packet.payload, 0xFF, MAX_PAYLOAD_SIZE);
 		me->packet_status = SIGNAL_PACKET_NOT_READY;
 		state = STATE_HANDLED;
 		break;
@@ -144,8 +129,9 @@ status_t comm_state_crc(bootloader_fsm_t *const me, Event const *const e)
 			if (bytes_collected_counter >= 4) {
 				bool valid =
 					bootloader_verify_crc(&temp_packet);
-				me->packet_status = valid ? SIGNAL_PACKET_VALID :
-							    SIGNAL_PACKET_INVALID;
+				me->packet_status =
+					valid ? SIGNAL_PACKET_VALID :
+						SIGNAL_PACKET_INVALID;
 				state = FSM_TRANSIT_TO(
 					bootloader_fsm_verify_packet_id);
 			}
@@ -155,7 +141,8 @@ status_t comm_state_crc(bootloader_fsm_t *const me, Event const *const e)
 
 	case SIGNAL_EXIT: {
 		if (me->packet_status == SIGNAL_PACKET_VALID) {
-			memcpy(&last_packet, &temp_packet, sizeof(temp_packet));
+			memcpy(&last_received_packet, &temp_packet,
+			       sizeof(temp_packet));
 		}
 		state = STATE_HANDLED;
 		break;
@@ -171,5 +158,5 @@ status_t comm_state_crc(bootloader_fsm_t *const me, Event const *const e)
 
 comms_packet_t *comm_get_last_packet(void)
 {
-	return &last_packet;
+	return &last_received_packet;
 }

@@ -15,11 +15,13 @@ struct bootloader_fsm {
 	uint8_t uart_byte;
 	EventSignals packet_status;
 };
-
 void bootloader_fsm_ctr(bootloader_fsm_t *me, StateHandler initial);
 
 status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 					 Event const *const e);
+
+status_t bootloader_fw_update_sync_request(bootloader_fsm_t *me,
+					   Event const *const e);
 
 #define FSM_TRANSIT_TO(target_) \
 	(((Fsm *)me)->state = (StateHandler)(target_), STATE_TRANSITION)

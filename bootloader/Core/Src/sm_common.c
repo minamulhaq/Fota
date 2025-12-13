@@ -7,9 +7,12 @@ Event const event_packet_invalid = { SIGNAL_PACKET_INVALID };
 Event const entry_event = { SIGNAL_ENTRY };
 Event const exit_event = { SIGNAL_EXIT };
 Event const init_event = { SIGNAL_INIT };
+Event const event_sync_requested = { SIGNAL_SYNC_REQUESTED };
 
 status_t hsm_top_status(Fsm *const me, Event const *const e)
 {
+	(void)me;
+	(void)e;
 	return STATE_IGNORED;
 }
 void Fsm_ctor(Fsm *const me, StateHandler initial)
@@ -33,9 +36,5 @@ void Fsm_dispatch(Fsm *const me, Event const *const e)
 	if (status == STATE_TRANSITION) {
 		(prev)(me, &exit_event);
 		(*me->state)(me, &entry_event);
-	}
-
-	while (status == STATE_SUPER) {
-		status = (*me->super_state)(me, e);
 	}
 }
