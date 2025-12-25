@@ -116,17 +116,26 @@ class Command(ABC):
         return self.crc32_stm32_style(data)
 
     def crc32_stm32_style(self, data: bytes) -> int:
+        """
+        STM32 CRC peripheral compatible
+        CRC-32 / MPEG-2
+        Poly: 0x04C11DB7
+        Init: 0xFFFFFFFF
+        No reflection
+        No final XOR
+        """
         crc = 0xFFFFFFFF
+        poly = 0x04C11DB7
 
         for byte in data:
-            crc ^= byte
+            crc ^= byte << 24  # align byte to MSB
             for _ in range(8):
-                if crc & 1:
-                    crc = (crc >> 1) ^ 0xEDB88320
+                if crc & 0x80000000:
+                    crc = ((crc << 1) ^ poly) & 0xFFFFFFFF
                 else:
-                    crc >>= 1
+                    crc = (crc << 1) & 0xFFFFFFFF
 
-        return (~crc) & 0xFFFFFFFF
+        return crc
 
     @property
     def len_crc(self) -> int:
@@ -317,7 +326,9 @@ class Command(ABC):
 
             if raw_cmd[1] > 0:
                 payload_bytes = raw_cmd[2 : 2 + raw_cmd[1]]
-                print(f"     Payload:     {' '.join([f'{b:02X}' for b in payload_bytes])}")
+                print(
+                    f"     Payload:     {' '.join([f'{b:02X}' for b in payload_bytes])}"
+                )
             else:
                 print("     Payload:     None")
 
@@ -326,7 +337,7 @@ class Command(ABC):
             print(
                 f"     CRC32:       {' '.join([f'{b:02X}' for b in crc_bytes])} (LE) = 0x{crc_value:08X}"
             )
-            print(f"\n[TX] Raw bytes: {' '.join([f'{b:02X}' for b in raw_cmd])}")
+            print(f"\n[TX] Raw bytes: {' '.join([f'0x{b:02X}' for b in raw_cmd])}")
 
         # Step 3: Clear buffers and send command
         port.reset_input_buffer()
@@ -424,7 +435,7 @@ class Command(ABC):
         )
 
         print(f"\n[RX] ✓ Complete packet received ({len(response_buffer)} bytes)")
-        print(f"[RX] Raw data: {' '.join([f'{b:02X}' for b in response_buffer])}")
+        print(f"[RX] Raw data: {' '.join([f'0x{b:02X}' for b in response_buffer])}")
         return response_buffer
 
     def validate_packet(

@@ -186,7 +186,8 @@ uint32_t bootloader_compute_crc(const comms_packet_t *const packet)
 	}
 
 	/* Call your existing crc32() exactly as-is */
-	return crc32(buf, idx);
+	// return crc32(buf, idx);
+	return stm32_crc32_default(buf, idx);
 }
 
 extern TIM_HandleTypeDef htim6;

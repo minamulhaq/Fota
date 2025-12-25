@@ -40,8 +40,8 @@ void MX_CRC_Init(void)
 	hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
 	hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
 	hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
-	hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
-	hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_WORDS;
+	hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLED;
+	hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
 	if (HAL_CRC_Init(&hcrc) != HAL_OK) {
 		Error_Handler();
 	}
@@ -79,8 +79,7 @@ void HAL_CRC_MspDeInit(CRC_HandleTypeDef *crcHandle)
 }
 
 /* USER CODE BEGIN 1 */
-
-
+/*
 uint8_t crc8(uint8_t *data, uint32_t length)
 {
 	uint8_t crc = 0;
@@ -116,6 +115,18 @@ uint32_t crc32(const uint8_t *data, const uint32_t length)
 	}
 
 	return ~crc;
+}
+*/
+
+uint32_t stm32_crc32_default(const uint8_t *data, const uint32_t length)
+{
+	if ((NULL == data) || (length == 0)) {
+		return 0;
+	}
+	/* CRC-32/MPEG-2 */
+	uint32_t crc = HAL_CRC_Accumulate(&hcrc, (uint32_t *)data, length);
+	__HAL_CRC_DR_RESET(&hcrc);
+	return crc;
 }
 
 /* USER CODE END 1 */

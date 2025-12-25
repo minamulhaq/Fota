@@ -14,7 +14,10 @@ static void setup_fw_packet(packet_controller_t *const pcontroller)
 void packet_controller_init(packet_controller_t *const pcontroller,
 			    const uint32_t fw_size)
 {
-	memcpy(pcontroller, 0, sizeof(packet_controller_t));
+	if (pcontroller == NULL) {
+		return;
+	}
+	memset(pcontroller, 0, sizeof(packet_controller_t));
 	pcontroller->current_flash_address = FOTA_SHARED_START;
 	pcontroller->fw_size = fw_size;
 	setup_fw_packet(pcontroller);
@@ -22,5 +25,5 @@ void packet_controller_init(packet_controller_t *const pcontroller,
 
 void packet_controller_reset(packet_controller_t *const pcontroller)
 {
-	memcpy(pcontroller, 0, sizeof(packet_controller_t));
+	memset(pcontroller, 0, sizeof(packet_controller_t));
 }
