@@ -62,11 +62,10 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-version_t fota_app_version FOTA_SHARED_REGION = { .major = 0x01,
-						  .minor = 0x00,
-						  .patch = 0x00,
-						  .padding = { 0xFF, 0xFF, 0xFF,
-							       0xFF, 0xFF } };
+fw_version_t fota_app_version FOTA_SHARED_REGION = { .major = 0x01,
+						     .minor = 0x00,
+						     .patch = 0x01,
+						     .padding = 0x00 };
 
 /* USER CODE END 0 */
 
@@ -113,7 +112,7 @@ int main(void)
 	/* USER CODE BEGIN WHILE */
 	while (1) {
 		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-		HAL_Delay(100);
+		HAL_Delay(50);
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */

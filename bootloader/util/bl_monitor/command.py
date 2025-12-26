@@ -6,6 +6,8 @@ from typing import Optional
 
 from serial import Serial
 
+from .crc_calculator import CRCCalculator
+
 
 class ErrorCodes(Enum):
     ERROR_INVALID_COMMAND = 0x11
@@ -83,6 +85,7 @@ class CommandExecutionResponse:
 class Command(ABC):
     def __init__(self) -> None:
         super().__init__()
+        self.__crc_calculator: CRCCalculator = CRCCalculator()
         print(f"\nHANDLING {self.info.nemonic}")
 
     @property
@@ -113,29 +116,29 @@ class Command(ABC):
         if pkt.length > 0 and pkt.payload:
             data.extend([b & 0xFF for b in pkt.payload[: pkt.length]])
 
-        return self.crc32_stm32_style(data)
+        return self.__crc_calculator.crc32_stm32_style(data)
 
-    def crc32_stm32_style(self, data: bytes) -> int:
-        """
-        STM32 CRC peripheral compatible
-        CRC-32 / MPEG-2
-        Poly: 0x04C11DB7
-        Init: 0xFFFFFFFF
-        No reflection
-        No final XOR
-        """
-        crc = 0xFFFFFFFF
-        poly = 0x04C11DB7
+    # def crc32_stm32_style(self, data: bytes) -> int:
+    #     """
+    #     STM32 CRC peripheral compatible
+    #     CRC-32 / MPEG-2
+    #     Poly: 0x04C11DB7
+    #     Init: 0xFFFFFFFF
+    #     No reflection
+    #     No final XOR
+    #     """
+    #     crc = 0xFFFFFFFF
+    #     poly = 0x04C11DB7
 
-        for byte in data:
-            crc ^= byte << 24  # align byte to MSB
-            for _ in range(8):
-                if crc & 0x80000000:
-                    crc = ((crc << 1) ^ poly) & 0xFFFFFFFF
-                else:
-                    crc = (crc << 1) & 0xFFFFFFFF
+    #     for byte in data:
+    #         crc ^= byte << 24  # align byte to MSB
+    #         for _ in range(8):
+    #             if crc & 0x80000000:
+    #                 crc = ((crc << 1) ^ poly) & 0xFFFFFFFF
+    #             else:
+    #                 crc = (crc << 1) & 0xFFFFFFFF
 
-        return crc
+    #     return crc
 
     @property
     def len_crc(self) -> int:
@@ -246,7 +249,7 @@ class Command(ABC):
         if payload_length > 0:
             crc_data.extend(payload)
 
-        computed_crc = self.crc32_stm32_style(crc_data)
+        computed_crc = self.__crc_calculator.crc32_stm32_style(crc_data)
 
         print(f"[RX] Step 5 - Verify CRC:")
         print(f"     CRC computed over: {' '.join([f'{b:02X}' for b in crc_data])}")

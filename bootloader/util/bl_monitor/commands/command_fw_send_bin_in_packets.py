@@ -1,12 +1,19 @@
+import struct
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from serial import Serial
 
+from ..crc_calculator import CRCCalculator
+
 from ..command import Command, CommandExecutionResponse, CommandIDs, CommandInfo, Packet
 
 MAX_PAYLOAD = 16
+
+APP_OFFSET = 0x800  # FOTA shared region size
+APP_SIZE_OFFSET = 20
+CRC_OFFSET = 24
 
 
 @dataclass
@@ -18,10 +25,29 @@ class BinFWUpdateMetaData:
     raw_bytes: bytes = field(init=False)
 
     def __post_init__(self):
+        """
+        load binary and add binary size and crc of app in fota shared region.
+        bootloader should verify the crc before jumping to application.
+        """
         with open(self.bin_file_path, "rb") as f:
-            self.raw_bytes = f.read()
-            self.bin_size = len(self.raw_bytes)
-            self.total_packets = (self.bin_size + MAX_PAYLOAD - 1) // MAX_PAYLOAD
+            self.raw_bytes = bytearray(f.read())
+
+        app_size = len(self.raw_bytes) - APP_OFFSET
+        print(f"Application binary size: 0x{app_size:08X}")
+
+        self.raw_bytes[APP_SIZE_OFFSET : APP_SIZE_OFFSET + 4] = struct.pack(
+            "<I", app_size
+        )
+
+        self.raw_bytes[CRC_OFFSET : CRC_OFFSET + 4] = b"\x00\x00\x00\x00"
+
+        app_bytes = self.raw_bytes[APP_OFFSET:]
+        app_crc = CRCCalculator.crc32_stm32_style(app_bytes)
+        print(f"Application CRC = 0x{app_crc:08X}")
+        self.raw_bytes[CRC_OFFSET : CRC_OFFSET + 4] = struct.pack("<I", app_crc)
+
+        self.bin_size = len(self.raw_bytes)
+        self.total_packets = (self.bin_size + MAX_PAYLOAD - 1) // MAX_PAYLOAD
 
     def __str__(self) -> str:
         return (

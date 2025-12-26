@@ -23,11 +23,11 @@ cmd_get_app_version_process(comms_packet_t *const last_received_packet,
 			    comms_packet_t *const response_packet)
 {
 	(void)last_received_packet;
-	version_t v = { 0 };
+	fw_version_t v = { 0 };
 	bootloader_read_app_version(&v);
 	response_packet->command_id = B_ACK;
-	response_packet->length = sizeof(version_t);
-	memcpy(response_packet->payload, &v, sizeof(version_t));
+	response_packet->length = sizeof(fw_version_t);
+	memcpy(response_packet->payload, &v, sizeof(fw_version_t));
 	uint32_t crc = bootloader_compute_crc(response_packet);
 	response_packet->crc = crc;
 	return true;

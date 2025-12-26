@@ -18,6 +18,7 @@
 #include "fota_api.h"
 #include "stm32l4xx_hal_flash.h"
 #include "stm32l4xx_hal_gpio.h"
+#include "versions.h"
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
@@ -54,11 +55,25 @@ static bool is_msp_valid(uint32_t msp_val)
 	return (in_sram1_range || in_sram2_range);
 }
 
+static bool verify_app_crc(void)
+{
+	fw_info_t fotainfo;
+	fota_api_get_app_info(&fotainfo);
+	uint32_t crc = fotainfo.crc;
+	uint8_t *app_start = (uint8_t *)FLASH_SECTOR_APP_START_ADDRESS;
+	uint32_t app_size = fotainfo.app_size;
+	uint32_t calculated_crc = stm32_crc32_default(app_start, app_size);
+	return calculated_crc == crc;
+}
+
 void bootloader_jump_to_user_app(void)
 {
 	/*
      * 1. Configure the MSP by reading the value from the base address of the application
      */
+	if (!verify_app_crc()) {
+		HAL_NVIC_SystemReset();
+	}
 
 	uint32_t msp = *(volatile uint32_t *)FLASH_SECTOR_APP_START_ADDRESS;
 	if (!is_msp_valid(msp)) {
@@ -326,7 +341,7 @@ void bootlader_get_last_transmitted_packet(comms_packet_t *const packet)
 	memcpy(packet, &last_sent_packet, sizeof(comms_packet_t));
 }
 
-void bootloader_read_app_version(version_t *const version)
+void bootloader_read_app_version(fw_version_t *const version)
 {
 	fota_api_get_app_version(version);
 }

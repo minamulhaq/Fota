@@ -18,3 +18,4 @@ from .commands.command_retransmit import CommandRetransmit
 from .commands.command_fw_verify_device_id import CommandFWVerifyDeviceID
 from .commands.command_fw_send_bin_size import CommandFWSendBinSize
 from .commands.command_fw_send_bin_in_packets import CommandFWSendBinInPackets
+from .crc_calculator import CRCCalculator

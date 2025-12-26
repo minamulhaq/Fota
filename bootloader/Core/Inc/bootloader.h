@@ -58,7 +58,7 @@ bool bootlader_is_data_available(void);
 void bootlader_send_response_packet(comms_packet_t const *packet);
 void bootlader_get_last_transmitted_packet(comms_packet_t *const packet);
 
-void bootloader_read_app_version(version_t *const version);
+void bootloader_read_app_version(fw_version_t *const version);
 bool bootloader_erase_shared_plus_app(void);
 bool bootloader_flash_double_word(uint32_t address, uint64_t data);
 
