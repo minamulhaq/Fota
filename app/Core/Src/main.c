@@ -51,6 +51,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+extern fota_shared_t fota_shared;
 
 /* USER CODE END PV */
 
@@ -62,10 +63,6 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-fw_version_t fota_app_version FOTA_SHARED_REGION = { .major = 0x01,
-						     .minor = 0x00,
-						     .patch = 0x01,
-						     .padding = 0x00 };
 
 /* USER CODE END 0 */
 
@@ -104,7 +101,7 @@ int main(void)
 	MX_TIM7_Init();
 	/* USER CODE BEGIN 2 */
 
-	fota_api_set_app_version(&fota_app_version);
+	fota_api_set_app_info(&fota_shared);
 
 	/* USER CODE END 2 */
 

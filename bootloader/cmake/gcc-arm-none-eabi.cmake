@@ -30,6 +30,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
     -Wall \
     -Wmaybe-uninitialized \
     -Wextra \
+    -Wshadow \
     -Wpedantic \
     -fdata-sections \
     -ffunction-sections"

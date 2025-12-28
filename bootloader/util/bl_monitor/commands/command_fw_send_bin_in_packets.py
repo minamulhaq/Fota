@@ -11,9 +11,9 @@ from ..command import Command, CommandExecutionResponse, CommandIDs, CommandInfo
 
 MAX_PAYLOAD = 16
 
-APP_OFFSET = 0x800  # FOTA shared region size
-APP_SIZE_OFFSET = 20
-CRC_OFFSET = 24
+# APP_OFFSET = 0x800  # FOTA shared region size
+# APP_SIZE_OFFSET = 20
+# CRC_OFFSET = 24
 
 
 @dataclass
@@ -32,19 +32,19 @@ class BinFWUpdateMetaData:
         with open(self.bin_file_path, "rb") as f:
             self.raw_bytes = bytearray(f.read())
 
-        app_size = len(self.raw_bytes) - APP_OFFSET
-        print(f"Application binary size: 0x{app_size:08X}")
+        # app_size = len(self.raw_bytes) - APP_OFFSET
+        # print(f"Application binary size: 0x{app_size:08X}")
 
-        self.raw_bytes[APP_SIZE_OFFSET : APP_SIZE_OFFSET + 4] = struct.pack(
-            "<I", app_size
-        )
+        # self.raw_bytes[APP_SIZE_OFFSET : APP_SIZE_OFFSET + 4] = struct.pack(
+        #     "<I", app_size
+        # )
 
-        self.raw_bytes[CRC_OFFSET : CRC_OFFSET + 4] = b"\x00\x00\x00\x00"
+        # self.raw_bytes[CRC_OFFSET : CRC_OFFSET + 4] = b"\x00\x00\x00\x00"
 
-        app_bytes = self.raw_bytes[APP_OFFSET:]
-        app_crc = CRCCalculator.crc32_stm32_style(app_bytes)
-        print(f"Application CRC = 0x{app_crc:08X}")
-        self.raw_bytes[CRC_OFFSET : CRC_OFFSET + 4] = struct.pack("<I", app_crc)
+        # app_bytes = self.raw_bytes[APP_OFFSET:]
+        # app_crc = CRCCalculator.crc32_stm32_style(app_bytes)
+        # print(f"Application CRC = 0x{app_crc:08X}")
+        # self.raw_bytes[CRC_OFFSET : CRC_OFFSET + 4] = struct.pack("<I", app_crc)
 
         self.bin_size = len(self.raw_bytes)
         self.total_packets = (self.bin_size + MAX_PAYLOAD - 1) // MAX_PAYLOAD

@@ -19,6 +19,7 @@
 #include "stm32l4xx_hal_flash.h"
 #include "stm32l4xx_hal_gpio.h"
 #include "versions.h"
+#include "aes.h"
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
@@ -57,14 +58,85 @@ static bool is_msp_valid(uint32_t msp_val)
 
 static bool verify_app_crc(void)
 {
-	fw_info_t fotainfo;
-	fota_api_get_app_info(&fotainfo);
-	uint32_t crc = fotainfo.crc;
+	fota_shared_t fotashared;
+	// fw_info_t fotainfo;
+	fota_api_get_app_info(&fotashared);
+	uint32_t crc = fotashared.crc;
 	uint8_t *app_start = (uint8_t *)FLASH_SECTOR_APP_START_ADDRESS;
-	uint32_t app_size = fotainfo.app_size;
+	uint32_t app_size = fotashared.info.app_size;
 	uint32_t calculated_crc = stm32_crc32_default(app_start, app_size);
 	return calculated_crc == crc;
 }
+
+static const uint8_t secret_key[AES_BLOCK_SIZE] = {
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+};
+
+// volatile int x = 0;
+static void aes_cbc_mac_step(AES_Block_t aes_state, AES_Block_t prev_aes_state,
+			     const AES_Block_t *key_schedule)
+{
+	// The CBC chaining operation
+	for (uint8_t i = 0; i < AES_BLOCK_SIZE; i++) {
+		((uint8_t *)aes_state)[i] ^= ((uint8_t *)prev_aes_state)[i];
+	}
+
+	AES_EncryptBlock(aes_state, key_schedule);
+	memcpy(prev_aes_state, aes_state, AES_BLOCK_SIZE);
+}
+
+static bool verify_signature(void)
+{
+	fota_shared_t fotashared;
+	fota_api_get_app_info(&fotashared);
+	AES_Block_t round_keys[NUM_ROUND_KEYS_128];
+	AES_KeySchedule128(secret_key, round_keys);
+	AES_Block_t aes_state = { 0 };
+	AES_Block_t prev_aes_state = { 0 };
+	memcpy(aes_state, &fotashared.info, AES_BLOCK_SIZE);
+	aes_cbc_mac_step(aes_state, prev_aes_state, round_keys);
+
+	uint32_t full_blocks = fotashared.info.app_size / AES_BLOCK_SIZE;
+	uint32_t remainder = fotashared.info.app_size % AES_BLOCK_SIZE;
+
+	/* Process full blocks */
+	for (uint32_t i = 0; i < full_blocks; i++) {
+		uint32_t offset = i * AES_BLOCK_SIZE;
+		memcpy(aes_state,
+		       (void *)(FLASH_SECTOR_APP_START_ADDRESS + offset),
+		       AES_BLOCK_SIZE);
+		aes_cbc_mac_step(aes_state, prev_aes_state, round_keys);
+	}
+
+	/* Final block */
+	uint32_t offset = full_blocks * AES_BLOCK_SIZE;
+
+	if (remainder == 0) {
+		/* full aligned → add extra padding block */
+		memset(aes_state, AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+
+	} else {
+		uint8_t pad = AES_BLOCK_SIZE - remainder;
+
+		/* fill entire block with pad value */
+		memset(aes_state, pad, AES_BLOCK_SIZE);
+
+		/* overwrite first remainder bytes with firmware data */
+		memcpy(aes_state,
+		       (void *)(FLASH_SECTOR_APP_START_ADDRESS + offset),
+		       remainder);
+	}
+
+	aes_cbc_mac_step(aes_state, prev_aes_state, round_keys);
+	return memcmp(fotashared.firmware_signature, aes_state,
+		      AES_BLOCK_SIZE) == 0;
+}
+/*
+ "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x " ((uint8_t*)prev_aes_state)[0] ((uint8_t*)prev_aes_state)[1] ((uint8_t*)prev_aes_state)[2] ((uint8_t*)prev_aes_state)[3] ((uint8_t*)prev_aes_state)[4] ((uint8_t*)prev_aes_state)[5] ((uint8_t*)prev_aes_state)[6] ((uint8_t*)prev_aes_state)[7] ((uint8_t*)prev_aes_state)[8] ((uint8_t*)prev_aes_state)[9] ((uint8_t*)prev_aes_state)[10] ((uint8_t*)prev_aes_state)[11] ((uint8_t*)prev_aes_state)[12] ((uint8_t*)prev_aes_state)[13] ((uint8_t*)prev_aes_state)[14] ((uint8_t*)prev_aes_state)[15]
+ "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x " ((uint8_t*)aes_state)[0] ((uint8_t*)aes_state)[1] ((uint8_t*)aes_state)[2] ((uint8_t*)aes_state)[3] ((uint8_t*)aes_state)[4] ((uint8_t*)aes_state)[5] ((uint8_t*)aes_state)[6] ((uint8_t*)aes_state)[7] ((uint8_t*)aes_state)[8] ((uint8_t*)aes_state)[9] ((uint8_t*)aes_state)[10] ((uint8_t*)aes_state)[11] ((uint8_t*)aes_state)[12] ((uint8_t*)aes_state)[13] ((uint8_t*)aes_state)[14] ((uint8_t*)aes_state)[15]
+
+*/
 
 void bootloader_jump_to_user_app(void)
 {
@@ -72,6 +144,10 @@ void bootloader_jump_to_user_app(void)
      * 1. Configure the MSP by reading the value from the base address of the application
      */
 	if (!verify_app_crc()) {
+		HAL_NVIC_SystemReset();
+	}
+
+	if (!verify_signature()) {
 		HAL_NVIC_SystemReset();
 	}
 
@@ -307,7 +383,6 @@ uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length)
 	return length;
 }
 
-static volatile int x = 0;
 void bootlader_send_response_packet(comms_packet_t const *packet)
 {
 	// send command id

@@ -140,12 +140,11 @@ SECTIONS
 
 
   .API_SHARED  : {
-    . = ALIGN(8);
+    . = ALIGN(16);
     KEEP(*(.API_SHARED))
+    . = ALIGN(16);
   } > FOTA_SHARED
-
-
-
+  
   /* Remove information from the standard libraries */
   /DISCARD/ :
   {

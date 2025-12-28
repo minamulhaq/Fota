@@ -35,6 +35,7 @@ set(MX_Application_Src
     ${CMAKE_SOURCE_DIR}/Core/Src/stm32l4xx_hal_msp.c
     ${CMAKE_SOURCE_DIR}/Core/Src/sysmem.c
     ${CMAKE_SOURCE_DIR}/Core/Src/bootloader.c
+    ${CMAKE_SOURCE_DIR}/Core/Src/aes.c
     ${CMAKE_SOURCE_DIR}/Core/Src/packet_controller.c
     ${CMAKE_SOURCE_DIR}/Core/Src/bootloader_fsm.c
     ${CMAKE_SOURCE_DIR}/Core/Src/sm_common.c

@@ -79,4 +79,5 @@ add_custom_command(
     COMMAND ${CMAKE_OBJCOPY} -O binary --gap-fill 0xFF $<TARGET_FILE:${CMAKE_PROJECT_NAME}> ${CMAKE_PROJECT_NAME}.bin
     COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
     COMMAND ${TOOLCHAIN_PREFIX}readelf -h $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
+    COMMAND python ${CMAKE_SOURCE_DIR}/../bootloader/util/fw-signer.py ${CMAKE_PROJECT_NAME}.bin
 )

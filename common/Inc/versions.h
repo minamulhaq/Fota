@@ -12,12 +12,16 @@ typedef struct fw_version {
 
 typedef struct fw_info {
 	fw_version_t version;
-	uint32_t padding0;
-	uint32_t padding1;
-	uint32_t padding2;
-	uint32_t padding3;
+	uint32_t padding[2];
 	uint32_t app_size;
-	uint32_t crc;
 } fw_info_t;
+
+typedef struct __attribute__((packed, aligned(16))) {
+	fw_info_t info;
+	uint8_t firmware_signature[16];
+	uint32_t crc;
+	uint32_t padding[2];
+	uint32_t senital;
+} fota_shared_t;
 
 #endif // _INC_VERSIONS_H__

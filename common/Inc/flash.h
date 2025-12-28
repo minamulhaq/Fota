@@ -1,6 +1,9 @@
 #ifndef _INC_FLASH_H__
 #define _INC_FLASH_H__
 
+#define ALIGNED \
+	(address, alignment)(((alignment) - 1U + (alignment)) & -(alignment))
+
 #include "stm32l4xx.h"
 #include "stm32l4xx_hal_flash.h"
 

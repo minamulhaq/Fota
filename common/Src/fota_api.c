@@ -13,22 +13,21 @@ void fota_api_get_app_version(fw_version_t *const version)
 	memcpy(version, src, sizeof(fw_version_t));
 }
 
-void fota_api_set_app_version(fw_version_t const *const version)
+void fota_api_set_app_info(fota_shared_t *const fota)
 {
-	if (version == NULL)
+	if (fota == NULL)
 		return;
 
 	// Pointer to start of shared region
 	void *dst = (void *)&_fota_shared_data_start[0];
-
-	memcpy(dst, version, sizeof(fw_version_t));
+	memcpy(dst, fota, sizeof(fota_shared_t));
 }
 
-void fota_api_get_app_info(fw_info_t *const info)
+void fota_api_get_app_info(fota_shared_t *const fota_shared)
 {
-	if (info == NULL) {
+	if (fota_shared == NULL) {
 		return;
 	}
-	fw_info_t *dst = (fw_info_t *)_fota_shared_data_start;
-	memcpy(info, dst, sizeof(fw_info_t));
+	fota_shared_t *dst = (fota_shared_t *)_fota_shared_data_start;
+	memcpy(fota_shared, dst, sizeof(fota_shared_t));
 }

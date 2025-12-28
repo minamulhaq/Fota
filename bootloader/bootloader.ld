@@ -139,10 +139,9 @@ SECTIONS
 
 
   .API_SHARED (NOLOAD) : {
-    . = ALIGN(8);
+    . = ALIGN(16);
     KEEP(*(.API_SHARED))
   } > FOTA_SHARED
-
 
 
   /* Remove information from the standard libraries */
