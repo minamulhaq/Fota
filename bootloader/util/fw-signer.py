@@ -175,28 +175,6 @@ class FirmwareSigner:
         print(f"bytes read {len(raw_bytes)} | (0x{len(raw_bytes):X})")
         return raw_bytes
 
-    # def read_original_file(self) -> bytearray:
-    #     print(f"reading file {self.bin_file}")
-
-    #     with open(self.bin_file, "rb") as f:
-    #         raw_bytes = bytearray(f.read())
-
-    #     total_len = len(raw_bytes)
-    #     fw_len = total_len - APPLICATION_START_OFFSET
-
-    #     if fw_len < 0:
-    #         raise ValueError("Binary smaller than APPLICATION_START_OFFSET")
-
-    #     pad_len = (-fw_len) % 16  # zero if already aligned
-
-    #     if pad_len:
-    #         print(f"Padding firmware with {pad_len} zero bytes for CBC-MAC")
-    #         raw_bytes.extend(b"\x00" * pad_len)
-
-    #     print(f"bytes read (after padding): {len(raw_bytes)}")
-    #     return raw_bytes
-
-
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python fw-signer.py [bin_file]")
