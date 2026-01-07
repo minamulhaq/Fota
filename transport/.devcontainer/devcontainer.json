@@ -1,0 +1,28 @@
+{
+    "name": "ESP-IDF FOTA",
+    "dockerComposeFile": "../docker-compose.yaml",
+    "service": "espressif-idf",
+    "workspaceFolder": "/workspace", 
+    "customizations": {
+        "vscode": {
+            "settings": {
+                // Tells VS Code to treat the root workspace file as the source of truth
+                "terminal.integrated.cwd": "/workspace",
+                "idf.espIdfPath": "/opt/toolchains/esp-idf",
+                "idf.toolsPath": "/opt/toolchains/esp-idf-tools"
+            },
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "espressif.esp-idf-extension"
+            ]
+        }
+    },
+    "runArgs": [
+        "--device=/dev/cu.wchusbserial58FC0664511"
+        
+    ],
+    // Triggers after the container is created to ensure paths are ready
+    "postCreateCommand": "echo 'Workspace ready at /esp-idf.code-workspace'",
+    "remoteUser": "root"
+}

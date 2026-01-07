@@ -54,6 +54,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+void bl_send_bytes(const uint8_t *data, const uint32_t size);
+void bl_deinit(void);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

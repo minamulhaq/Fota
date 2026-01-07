@@ -19,7 +19,41 @@ extern Event exit_event;
 status_t comm_state_init(bootloader_fsm_t *me, StateHandler initial)
 {
 	(void)initial;
-	return FSM_TRANSIT_TO(comm_state_id);
+	return FSM_TRANSIT_TO(comm_state_frame);
+}
+
+static const uint8_t packet_frame[4] = { 0xA5, 0xAA, 0xBB, 0xA5 };
+
+status_t comm_state_frame(bootloader_fsm_t *const me, Event const *const e)
+{
+	status_t state;
+	switch (e->sig) {
+	case SIGNAL_ENTRY: {
+		bytes_collected_counter = 0;
+		me->packet_status = SIGNAL_PACKET_NOT_READY;
+		state = STATE_HANDLED;
+		break;
+	}
+	case SIGNAL_BYTE_RECEIVED: {
+		if (me->uart_byte == packet_frame[bytes_collected_counter]) {
+			bytes_collected_counter++;
+			if (bytes_collected_counter == 4) {
+				state = FSM_TRANSIT_TO(comm_state_id);
+			}
+		}
+		else {
+			bytes_collected_counter = 0;
+		}
+		state = STATE_HANDLED;
+		break;
+	}
+
+	default: {
+		state = STATE_IGNORED;
+		break;
+	}
+	}
+	return state;
 }
 
 status_t comm_state_id(bootloader_fsm_t *const me, Event const *const e)

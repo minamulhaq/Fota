@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  espressif-idf:
+    build:
+      context: .
+      dockerfile: Dockerfile.esp-idf
+    image: esp32-transport
+    container_name: esp32-idf-transport
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/workspace:cached
+    ports:
+      - "3333:3333"
+      - "1883:1883"
+      - "8080:8080"
+      - "8081:8081"
+      - "8800:8800"
+      - "8883:8883"
+    # Essential for ESP32 flashing from container
+    privileged: true
+    devices:
+      - "/dev/tty.wchusbserial58FC0664511:/dev/tty.wchusbserial58FC0664511"

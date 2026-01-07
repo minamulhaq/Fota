@@ -24,7 +24,7 @@ from serial.tools import list_ports
 
 BAUDRATE = 115200
 KEYWORD = "STM"  # Changed: More generic to match more devices
-TIMEOUT = 12.0  # Response timeout in seconds
+TIMEOUT = 5
 
 
 class SerialMonitor:

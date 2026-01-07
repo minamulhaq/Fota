@@ -8,7 +8,7 @@
 #include "gpio.h"
 #include "main.h"
 #include "stm32l4xx_hal.h"
-#include "usart.h"
+// #include "usart.h"
 #include "flash.h"
 #include "msg_printer.h"
 #include "is_ringbuffer.h"
@@ -19,7 +19,10 @@
 #include "stm32l4xx_hal_flash.h"
 #include "stm32l4xx_hal_gpio.h"
 #include "versions.h"
+#include "bl_serrif.h"
 #include "aes.h"
+
+static const bl_handle_t *handle;
 
 uint8_t bootloader_receive_buffer[BOOTLOADER_RECEIVE_BUFFER_SIZE];
 uint8_t bootloader_version[3] = { MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION };
@@ -75,7 +78,7 @@ static const uint8_t secret_key[AES_BLOCK_SIZE] = {
 
 // volatile int x = 0;
 static void aes_cbc_mac_step(AES_Block_t aes_state, AES_Block_t prev_aes_state,
-			     const AES_Block_t *key_schedule)
+			     AES_Block_t *key_schedule)
 {
 	// The CBC chaining operation
 	for (uint8_t i = 0; i < AES_BLOCK_SIZE; i++) {
@@ -151,15 +154,12 @@ void bootloader_jump_to_user_app(void)
 		HAL_NVIC_SystemReset();
 	}
 
+	handle->deinit();
+
 	uint32_t msp = *(volatile uint32_t *)FLASH_SECTOR_APP_START_ADDRESS;
 	if (!is_msp_valid(msp)) {
 		return;
 	}
-
-	__disable_irq(); // Disable interrupts
-	for (int i = 0; i < 8; i++) // Clear all NVIC pending registers
-		NVIC->ICPR[i] = 0xFFFFFFFF;
-	__set_PRIMASK(0); // Re-enable interrupts if needed
 
 	uint32_t msp_value =
 		*(volatile uint32_t *)FLASH_SECTOR_APP_START_ADDRESS;
@@ -304,60 +304,29 @@ void bootloader_check_elapsed_time(void)
 	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 }
 
-static uint8_t buf;
 static ring_buffer_t rb;
 static uint8_t usart_buf[BOOTLOADER_RECEIVE_BUFFER_SIZE] = { 0U };
 
-void bootloader_setup(void)
+void bootloader_setup(const bl_handle_t *bl_handle)
 {
 	ring_buffer_setup(&rb, usart_buf, BOOTLOADER_RECEIVE_BUFFER_SIZE);
-
-	HAL_UART_RegisterCallback(&huart2, HAL_UART_RX_COMPLETE_CB_ID,
-				  bootloader_usart_rx_cb);
-	HAL_UART_RegisterCallback(&huart2, HAL_UART_ERROR_CB_ID,
-				  bootloader_usart_error_cb);
-	register_rx_it();
+	handle = bl_handle;
 }
 
-void register_rx_it(void)
+void bootloader_byte_received(const uint8_t byte)
 {
-	HAL_UART_Receive_IT(&huart2, &buf, 1);
-}
-
-void bootloader_usart_rx_cb(UART_HandleTypeDef *huart)
-{
-	if (&huart2 == huart) {
-		ring_buffer_write(&rb, (uint8_t)buf);
-		register_rx_it();
-	}
-}
-
-void bootloader_usart_error_cb(UART_HandleTypeDef *huart)
-{
-	if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
-	}
-
-	if (huart->ErrorCode & HAL_UART_ERROR_FE) {
-	}
-
-	// The HAL's internal IRQ handler clears the error flags and attempts
-	// to put the peripheral back into a ready state before calling this.
-	// If you need to re-arm reception, consider calling register_rx_it() here
-	// only if the error state has been fully resolved by the HAL.
-
-	register_rx_it();
-	huart->ErrorCode =
-		HAL_UART_ERROR_NONE; // Clear the error status after handling
+	ring_buffer_write(&rb, (uint8_t)byte);
 }
 
 void bootloader_send_byte(const uint8_t data)
 {
-	HAL_UART_Transmit(&huart2, &data, 1, 100);
+	
+	handle->serrif.wb(&data, sizeof(uint8_t));
 }
 
 void bootloader_send_bytes(uint8_t *data, uint16_t length)
 {
-	HAL_UART_Transmit(&huart2, data, length, 100);
+	handle->serrif.wb(data, length);
 }
 
 bool bootlader_is_data_available(void)
@@ -386,12 +355,10 @@ uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length)
 void bootlader_send_response_packet(comms_packet_t const *packet)
 {
 	// send command id
-	HAL_UART_Transmit(&huart2, (uint8_t *)&packet->command_id,
-			  sizeof(packet->command_id), HAL_MAX_DELAY);
+	handle->serrif.wb((uint8_t *)&packet->command_id, sizeof(packet->command_id));
 
 	// send length
-	HAL_UART_Transmit(&huart2, (uint8_t *)&packet->length,
-			  sizeof(packet->length), HAL_MAX_DELAY);
+	handle->serrif.wb((uint8_t *)&packet->length, sizeof(packet->length));
 
 	// send payload only if length > 0
 	if (packet->length > 0) {
@@ -400,12 +367,10 @@ void bootlader_send_response_packet(comms_packet_t const *packet)
 				      packet->length :
 				      MAX_PAYLOAD_SIZE;
 
-		HAL_UART_Transmit(&huart2, (uint8_t *)packet->payload, len,
-				  HAL_MAX_DELAY);
+		handle->serrif.wb((uint8_t *)packet->payload, len);
 	}
 
-	HAL_UART_Transmit(&huart2, (uint8_t *)&packet->crc, sizeof(packet->crc),
-			  HAL_MAX_DELAY);
+	handle->serrif.wb((uint8_t *)&packet->crc, sizeof(packet->crc));
 
 	memcpy(&last_sent_packet, packet, sizeof(comms_packet_t));
 	return;

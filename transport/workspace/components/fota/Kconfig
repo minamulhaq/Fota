@@ -1,0 +1,6 @@
+# FOTA Kconfig
+config FOTA
+    bool "ESP Transport layer for FOTA"
+    default n
+    help
+        Add Fota transport layer to communicate with Nucleo board via uart.

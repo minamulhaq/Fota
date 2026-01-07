@@ -28,11 +28,11 @@ Easily adaptable to other STM32L4 devices by adjusting linker scripts and flash 
 
 The 1 MB flash is strictly partitioned to ensure bootloader safety and reliable updates.
 
-| Region          | Start Address | Size   | Pages       | Description                                      |
-|-----------------|---------------|--------|-------------|--------------------------------------------------|
-| Bootloader      | 0x08000000    | 64 KB  | 0–31        | Bootloader code and data (never overwritten)     |
-| FOTA Metadata   | 0x08010000    | 2 KB   | 32          | Update status, vector table copy, CRC, signature  |
-| Application     | 0x08010800    | ~942 KB| 33–511      | Active application firmware (updatable slot)     |
+| Region        | Start Address | Size    | Pages  | Description                                      |
+| ------------- | ------------- | ------- | ------ | ------------------------------------------------ |
+| Bootloader    | 0x08000000    | 64 KB   | 0–31   | Bootloader code and data (never overwritten)     |
+| FOTA Metadata | 0x08010000    | 2 KB    | 32     | Update status, vector table copy, CRC, signature |
+| Application   | 0x08010800    | ~942 KB | 33–511 | Active application firmware (updatable slot)     |
 
 > Note: Exact sizes and addresses are defined in:
 > - `bootloader/bootloader.ld`
@@ -108,21 +108,21 @@ This provides strong authentication with minimal overhead.
 
 ## Bootloader Commands
 
-| Command                  | Description                                   | Parameters                  |
-|--------------------------|-----------------------------------------------|-----------------------------|
-| Sync                     | Handshake / connection establish              | None                        |
-| Get Bootloader Version   | Read bootloader version                       | None                        |
-| Get App Version          | Read current app version (if valid)           | None                        |
-| Get Chip ID              | Read unique device ID                         | None                        |
-| Get RDP Level            | Read readout protection level                 | None                        |
-| Verify Device ID         | Confirm target device                         | Expected ID                 |
-| Erase Flash              | Erase application region                      | None                        |
-| Send Firmware Size       | Declare incoming binary size                  | Size (bytes)                |
-| Send Firmware Packet     | Send one packet (data + seq + CRC)             | Seq # + payload             |
-| Retransmit               | Request missing packet                        | Seq #                       |
-| Verify Firmware          | Final signature + CRC check                   | None                        |
-| Jump to App              | Jump to application start                     | None                        |
-| Help                     | List commands                                 | None                        |
+| Command                | Description                         | Parameters      |
+| ---------------------- | ----------------------------------- | --------------- |
+| Sync                   | Handshake / connection establish    | None            |
+| Get Bootloader Version | Read bootloader version             | None            |
+| Get App Version        | Read current app version (if valid) | None            |
+| Get Chip ID            | Read unique device ID               | None            |
+| Get RDP Level          | Read readout protection level       | None            |
+| Verify Device ID       | Confirm target device               | Expected ID     |
+| Erase Flash            | Erase application region            | None            |
+| Send Firmware Size     | Declare incoming binary size        | Size (bytes)    |
+| Send Firmware Packet   | Send one packet (data + seq + CRC)  | Seq # + payload |
+| Retransmit             | Request missing packet              | Seq #           |
+| Verify Firmware        | Final signature + CRC check         | None            |
+| Jump to App            | Jump to application start           | None            |
+| Help                   | List commands                       | None            |
 
 All commands defined in `bootloader/Core/Inc/bootloader_cmds.h`.
 
@@ -150,7 +150,8 @@ The bootloader uses a **Finite State Machine (FSM)** to manage the firmware upda
 The FSM is implemented across shared and bootloader-specific files:
 
 - **Shared base**: `common/Src/sm_common.c` and `common/Inc/sm_common.h`  
-  Provides a generic state machine framework (states, events, transition table).
+  Provides a generic state machine framework (states, events, Hierarchical State Machine etc).
+  
 
 - **Bootloader-specific**: `bootloader/Core/Src/bootloader_fsm.c` and `bootloader/Core/Inc/bootloader_fsm.h`  
   Defines update-specific states, events, and actions.
@@ -158,6 +159,31 @@ The FSM is implemented across shared and bootloader-specific files:
 This modular design allows reuse if needed elsewhere.
 
 ## Generic State Machine Framework (`sm_common.*`)
+  **Comms state** - Defines basic state machine that gets the packet. Each packet goes through following state before construction 
+  ```c
+  status_t comm_state_init(bootloader_fsm_t *me, StateHandler initial);
+  status_t comm_state_frame(bootloader_fsm_t *const me, Event const *const e);
+  status_t comm_state_id(bootloader_fsm_t *const me, Event const *const e);
+  status_t comm_state_length(bootloader_fsm_t *const me, Event const *const e);
+  status_t comm_state_payload(bootloader_fsm_t *const me, Event const *const e);
+  status_t comm_state_crc(bootloader_fsm_t *const me, Event const *const e);
+  ```
+  **bootloader\Core\Inc\bootloader_fsm.h** -  defines generic FSM. Each FSM must be inherrited from
+  ```c
+  typedef status_t (*StateHandler)(Fsm *const me, Event const *const e);
+  status_t hsm_top_status(Fsm *const me, Event const *const e);
+
+  struct Fsm {
+    StateHandler state;
+    StateHandler super_state;
+  };
+
+  void Fsm_ctor(Fsm *const me, StateHandler initial);
+  void Fsm_init(Fsm *const me, Event const *const e);
+  void Fsm_dispatch(Fsm *const me, Event const *const e);
+  ```
+
+   
 
 `sm_common` implements a simple table-driven FSM:
 
@@ -192,3 +218,31 @@ typedef enum {
     // Additional: BL_STATE_BOOT_APP (transient for jumping)
 } bl_fsm_state_t;
 ```
+
+
+## Data Flow(`comms fsm + Bootloader fsm`)
+- Data is injected to bootloader via serial interface defined in ```bl_serrif.h```
+```c
+typedef void (*bl_send_bytes_fn_t)(const uint8_t *data, const uint32_t size);
+typedef void (*bl_deinit_fn_t)(void);
+
+typedef struct bl_serrif_t {
+	bl_send_bytes_fn_t wb;
+} bl_serrif_t;
+
+```
+- Cortex M4 reads data from DMA and injects into bootloader.
+- Bootloader first runs comms state machine
+  - comms state machine reads incoming byte stream on byte read event and after detecting correct frame, starts constructing packet.
+- If packet is valid (CRC Verified), it is fed into main bootloader_fsm. For invalid packet, bootloader requests retransmit and discards the packet. 
+- A bootloader commands must implement it handler
+```c
+typedef struct bootloader_cmd {
+	uint8_t command_id;
+	process_packet process;
+	bool send_response;
+} bootloader_cmd_t;
+```
+- bootloader detects command ID and checks if valid handle is implemented/supported. 
+- If command is not valid, a NACK is sent with error code. If handler exists, the packet is handled independantly.
+- Bootloader sends packet to host via same interface.

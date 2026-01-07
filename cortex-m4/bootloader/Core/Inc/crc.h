@@ -53,3 +53,4 @@ uint32_t stm32_crc32_default(const uint8_t *data, const uint32_t length);
 #endif
 
 #endif /* __CRC_H__ */
+

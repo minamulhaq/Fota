@@ -49,35 +49,3 @@ typedef struct bootloader_cmd {
 bootloader_cmd_t *get_command_handle(comms_packet_t const *const packet);
 bootloader_cmd_t *cmd_send_retransmit_last_cmd(void);
 bool bootloader_is_app_flash_finished(void);
-
-/*
-
-typedef uint8_t CommandID;
-typedef struct bootloader_cmd bootloader_cmd;
-struct bootloader_cmd {
-    CommandID id;
-    uint8_t response_length;
-    void (*handler)(bootloader_cmd*, uint8_t*);
-    void (*response_buffer)(uint8_t*);
-};
-
-void bcmd_default_handle(bootloader_cmd* cmd, uint8_t* data);
-
-void bcmd_get_version_response_buffer(uint8_t* buffer);
-
-void bcmd_get_help_handle(bootloader_cmd* cmd, uint8_t* data);
-void bcmd_get_help_response_buffer(uint8_t* buffer);
-
-void bcmd_get_cid_response_buffer(uint8_t* buffer);
-void bcmd_get_rdp_level_response_buffer(uint8_t* buffer);
-
-void bcmd_jump_to_addr_handle(bootloader_cmd* cmd, uint8_t* data);
-void bcmd_jump_to_addr_response_buffer(uint8_t* buffer);
-
-void bcmd_erase_flash_handle(bootloader_cmd* cmd, uint8_t* data);
-void bcmd_erase_flash_response_buffer(uint8_t* buffer);
-
-void bootloader_send_command_response(CRC_VERIFICATION v, bootloader_cmd* cmd);
-extern bootloader_cmd* cmd_table[];
-extern uint8_t cmd_table_size;
-*/

@@ -19,6 +19,11 @@ class CommandGetBootloaderVersion(Command):
         return Packet(id=self.cmd_id.value, length=0)
 
     @property
+    def timeout(self) -> int:
+        return 1
+
+
+    @property
     def info(self) -> CommandInfo:
         return CommandInfo(
             id=self.cmd_id.value,

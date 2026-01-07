@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "crc.h"
+#include "dma.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -50,16 +51,63 @@
 
 /* USER CODE BEGIN PV */
 
+UART_HandleTypeDef *fota_uart = &huart2;
+
+uint8_t dmadata[MAX_PAYLOAD_SIZE * 2];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void bl_send_bytes(const uint8_t *data, const uint32_t size)
+{
+	HAL_UART_Transmit(fota_uart, data, size, 100);
+}
+
+void bl_deinit(void)
+{
+	__disable_irq();
+	for (int i = 0; i < 8; i++) // Clear all NVIC pending registers
+		NVIC->ICPR[i] = 0xFFFFFFFF;
+	__set_PRIMASK(0); // Re-enable interrupts if needed
+	HAL_UART_AbortReceive(fota_uart);
+}
+void setup_cb(void)
+{
+	// 1. Abort any existing activity to reset the State Machine
+	HAL_UART_AbortReceive(fota_uart);
+
+	// 2. Clear all Interrupt Flags (Specifically IDLE and Overrun)
+	// Writing to ICR (Interrupt Flag Clear Register)
+	__HAL_UART_CLEAR_FLAG(fota_uart, UART_CLEAR_IDLEF | UART_CLEAR_OREF |
+						 UART_CLEAR_NEF |
+						 UART_CLEAR_FEF);
+
+	// 3. Flush the RDR (Receive Data Register)
+	// Reading the register multiple times ensures the hardware FIFO is empty
+	volatile uint32_t dummy_read;
+	while (__HAL_UART_GET_FLAG(fota_uart, UART_FLAG_RXNE)) {
+		dummy_read = fota_uart->Instance->RDR;
+		(void)dummy_read; // Prevent compiler optimization
+	}
+
+	// 4. Start DMA Reception
+	// DO NOT manually call __HAL_UART_ENABLE_IT(&fota_uart, UART_IT_IDLE);
+	// HAL_UARTEx_ReceiveToIdle_DMA already enables the required interrupts.
+	if (HAL_UARTEx_ReceiveToIdle_DMA(fota_uart, dmadata, sizeof(dmadata)) !=
+	    HAL_OK) {
+		Error_Handler();
+	}
+
+	// Optional: Disable Half-Transfer interrupt to avoid double-triggering
+	__HAL_DMA_DISABLE_IT(fota_uart->hdmarx, DMA_IT_HT);
+}
 
 /* USER CODE END 0 */
 
@@ -91,14 +139,22 @@ int main(void)
 
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
+	MX_DMA_Init();
 	MX_USART2_UART_Init();
 	MX_USART3_UART_Init();
 	MX_CRC_Init();
 	MX_TIM6_Init();
 	MX_TIM7_Init();
-
 	/* USER CODE BEGIN 2 */
-	bootloader_setup();
+
+	setup_cb();
+
+	bl_handle_t bl_handle = {
+
+		.serrif = { .wb = bl_send_bytes },
+		.deinit = bl_deinit
+	};
+	bootloader_setup(&bl_handle);
 	bootloader_decide();
 	/* USER CODE END 2 */
 
@@ -163,6 +219,57 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == fota_uart->Instance) {
+		uint32_t error_code = HAL_UART_GetError(huart);
+
+		// Framing Error (FE) Detected
+		if (error_code & HAL_UART_ERROR_FE) {
+			// A framing error often means the baud rate is slightly off
+			// or the line was disconnected/glitched.
+
+			// 1. Clear the FE flag by writing to ICR
+			__HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_FEF);
+
+			// 2. Read the data register to flush the 'bad' byte
+			volatile uint32_t dummy = huart->Instance->RDR;
+			(void)dummy;
+
+			// 3. Re-sync the DMA
+			setup_cb();
+		}
+
+		// Handle Overrun (ORE) - common if ESP32 sends while STM32 is in ISR
+		if (error_code & HAL_UART_ERROR_ORE) {
+			__HAL_UART_CLEAR_FLAG(huart, UART_CLEAR_OREF);
+			setup_cb();
+		}
+	}
+}
+
+/**
+ * @brief  Reception Event Callback (Handles IDLE and Complete events)
+ * @param  huart: UART handle
+ * @param  Size: Number of bytes actually received
+
+ 
+ "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x " ((uint8_t*)dmadata)[0] ((uint8_t*)dmadata)[1] ((uint8_t*)dmadata)[2] ((uint8_t*)dmadata)[3] ((uint8_t*)dmadata)[4] ((uint8_t*)dmadata)[5] ((uint8_t*)dmadata)[6] ((uint8_t*)dmadata)[7] ((uint8_t*)dmadata)[8] ((uint8_t*)dmadata)[9] ((uint8_t*)dmadata)[10] ((uint8_t*)dmadata)[11] ((uint8_t*)dmadata)[12] ((uint8_t*)dmadata)[13] ((uint8_t*)dmadata)[14] ((uint8_t*)dmadata)[14]
+ */
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+	(void)Size;
+	if (huart->Instance == fota_uart->Instance) {
+		uint16_t received = sizeof(dmadata) -
+				    __HAL_DMA_GET_COUNTER(fota_uart->hdmarx);
+		for (size_t i = 0; i < received; i++) {
+			bootloader_byte_received(dmadata[i]);
+		}
+		setup_cb();
+	}
+}
+
 /* USER CODE END 4 */
 
 /**
@@ -188,25 +295,11 @@ void Error_Handler(void)
   */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-#define ASSERT_BUFFER_SIZE 128
-	char assert_msg_buffer[ASSERT_BUFFER_SIZE];
-	int len = snprintf(assert_msg_buffer, ASSERT_BUFFER_SIZE,
-			   "!!! ASSERT FAILED: File %s Line %lu\r\n",
-			   (char *)file, line);
-
-	// Ensure the length does not exceed the buffer size
-	if (len < 0 || len >= ASSERT_BUFFER_SIZE) {
-		// Handle the error, or truncate the string
-		// For simplicity, we trust snprintf to null-terminate if truncated
-	}
-
-	// --- Send the message over UART ---
-	// Assuming you have a blocking transmit function defined, e.g., in usart.h
-	// Replace huart_assert with your actual UART handle (e.g., huart1, huart2)
-	// Replace HAL_UART_Transmit with your preferred safe transmission wrapper
-
-	// Example using HAL_UART_Transmit (Blocking):
-	HAL_UART_Transmit(&huart2, (uint8_t *)assert_msg_buffer,
-			  (uint16_t)strlen(assert_msg_buffer), 100);
+	(void)file;
+	(void)line;
+	/* USER CODE BEGIN 6 */
+	/* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	/* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

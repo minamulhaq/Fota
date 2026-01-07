@@ -32,7 +32,6 @@ Release/
 # =========================
 .vscode/
 .idea/
-*.code-workspace
 *.cproject
 *.project
 *.launch

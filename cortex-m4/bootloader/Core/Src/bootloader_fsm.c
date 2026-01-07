@@ -102,7 +102,7 @@ status_t bootloader_fsm_verify_packet_id(bootloader_fsm_t *me,
 			// 	bootlader_send_response_packet(
 			// 		&response_packet);
 			// }
-			status = FSM_TRANSIT_TO(comm_state_id);
+			status = FSM_TRANSIT_TO(comm_state_frame);
 		}
 		break;
 	}

@@ -17,9 +17,9 @@ The design follows a classic dual-slot architecture:
 - On successful update and verification, the bootloader switches to the new application.
 
 
-**Status** (as of December 28, 2025):
-- Early-stage project (9 commits).
-- Secure signed firmware support recently added.
+**Status**:
+- Implemented bootloader and app.
+- Initial structure of esp32 based [transport](transport) layer 
 
 **ContributingContributions** are welcome! To contribute:Fork the repository.
 - Create a feature branch.
@@ -33,4 +33,4 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## Technical Documentation
 For detailed STM32 Cortex-M4 bootloader and application memory layout, see
-[CORTEXM4 Documentation](cortex-m4/CORTEXM4.md)
+[CORTEXM4 Documentation](cortex-m4)

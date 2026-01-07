@@ -9,6 +9,7 @@
 #include "usart.h"
 #include "comms.h"
 #include "versions.h"
+#include "bl_serrif.h"
 
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 2
@@ -43,13 +44,9 @@ uint32_t bootloader_compute_crc(const comms_packet_t *const packet);
 
 void bootloader_decide(void);
 
-void bootloader_setup(void);
+void bootloader_setup(const bl_handle_t *bl_handle);
 
-/*!< pointer to an UART callback function */
-void bootloader_usart_rx_cb(UART_HandleTypeDef *huart);
-void bootloader_usart_error_cb(UART_HandleTypeDef *huart);
-void register_rx_it(void);
-
+void bootloader_byte_received(const uint8_t byte);
 void bootloader_send_byte(const uint8_t data);
 uint32_t bootloader_read_bytes(uint8_t *data, const uint32_t length);
 void bootloader_read_byte(uint8_t *const byte);

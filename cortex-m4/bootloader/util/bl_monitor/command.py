@@ -9,6 +9,8 @@ from serial import Serial
 from .crc_calculator import CRCCalculator
 
 
+PACKET_FRAME = bytearray([0xA5, 0xAA, 0xBB, 0xA5])
+
 class ErrorCodes(Enum):
     ERROR_INVALID_COMMAND = 0x11
 
@@ -61,8 +63,6 @@ class Packet:
 
         return response
 
-
-TIMEOUT = 300
 
 
 @dataclass
@@ -300,6 +300,10 @@ class Command(ABC):
                 response = c.process_commmand(port=port)
         return response
 
+    @property
+    def timeout(self) -> int:
+        return 5
+
     def send_command(
         self,
         port: Serial,
@@ -346,15 +350,14 @@ class Command(ABC):
         port.reset_input_buffer()
         port.reset_output_buffer()
 
-        bytes_sent = port.write(raw_cmd)
+        bytes_sent = port.write((PACKET_FRAME + raw_cmd))
         port.flush()
-        print(f"[TX] ✓ Sent {bytes_sent}/{len(raw_cmd)} bytes")
+        print(f"[TX] ✓ Sent {bytes_sent}/{len(raw_cmd) + len(PACKET_FRAME)} bytes")
         # time.sleep(0.01)
 
         if expect_response:
             # Step 4: Receive response byte-by-byte
-            print(f"\n[RX] Receiving response packet...")
-
+            print(f"\n\n[RX] Receiving response packet with timeout: {self.timeout}")
             response_buffer = self.receive_raw_packet(port)
             print(f"Reponse buffer : {response_buffer}")
             if response_buffer:
@@ -379,7 +382,7 @@ class Command(ABC):
         response_buffer = bytearray([])
 
         print("[RX] - Reading ID byte...")
-        packet_id = self.read_byte_with_timeout(port, TIMEOUT)
+        packet_id = self.read_byte_with_timeout(port, self.timeout)
 
         if packet_id is None:
             print("[RX] ✗ Timeout waiting for ID byte")
@@ -389,7 +392,7 @@ class Command(ABC):
         print(f"[RX]   ID = 0x{packet_id:02X} ({hex(packet_id)})")
 
         print("[RX] - Reading Length byte...")
-        payload_length = self.read_byte_with_timeout(port, TIMEOUT)
+        payload_length = self.read_byte_with_timeout(port, self.timeout)
 
         if payload_length is None:
             print("[RX] ✗ Timeout waiting for Length byte")
@@ -402,7 +405,7 @@ class Command(ABC):
             print(f"[RX] - Reading {payload_length} payload bytes...")
 
             for i in range(payload_length):
-                payload_byte = self.read_byte_with_timeout(port, TIMEOUT)
+                payload_byte = self.read_byte_with_timeout(port, self.timeout)
 
                 if payload_byte is None:
                     print(
@@ -423,7 +426,7 @@ class Command(ABC):
         print("[RX] - Reading 4 CRC32 bytes...")
 
         for i in range(4):
-            crc_byte = self.read_byte_with_timeout(port=port, timeout_sec=TIMEOUT)
+            crc_byte = self.read_byte_with_timeout(port=port, timeout_sec=self.timeout)
 
             if crc_byte is None:
                 print(f"[RX] ✗ Timeout waiting for CRC byte {i + 1}/4")

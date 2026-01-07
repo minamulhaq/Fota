@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include <malloc.h>
 
 #define NUM_ROUND_KEYS_128 (11)
 #define AES_BLOCK_SIZE (16)
