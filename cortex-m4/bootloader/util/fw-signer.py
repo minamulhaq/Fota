@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
+import os
 from pathlib import Path
+import shutil
 import struct
 import subprocess
 import sys
@@ -128,13 +130,20 @@ class FirmwareSigner:
         orignal_fw = self.raw_bytes[APPLICATION_START_OFFSET:]
         bytes_for_bin_to_sign = app_size_bytes + orignal_fw
 
-        print(f"writing {self.fileName_bin_to_sign.as_posix()}")
+        print(f"writing {self.fileName_bin_to_sign.absolute().as_posix()}")
         with open(self.fileName_bin_to_sign, "wb") as f:
             f.write(bytes_for_bin_to_sign)
 
     def encrypt_binary(self):
         print(f"Creating encrypted binary file: {self.fileName_encrypted_bin}")
-        openssl_command = f"openssl enc -aes-128-cbc -nosalt -K {SIGNING_KEY} -iv {ZEROED_IV} -in {self.fileName_bin_to_sign} -out {self.fileName_encrypted_bin}"
+        openssl_path = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+        if not os.path.exists(openssl_path):
+                openssl_path = shutil.which("openssl")
+        if not openssl_path:
+                raise FileNotFoundError("openssl.exe not found. Please provide absolute path.")
+
+        openssl_command = f"{openssl_path} enc -aes-128-cbc -nosalt -K {SIGNING_KEY} -iv {ZEROED_IV} -in {self.fileName_bin_to_sign.absolute().as_posix()} -out {self.fileName_encrypted_bin.absolute().as_posix()}"
+        print(f"Running command : {openssl_command}")
         subprocess.call(openssl_command.split(" "))
 
     def get_signature(self):
