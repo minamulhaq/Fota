@@ -5,6 +5,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import platform
 
 from bl_monitor.crc_calculator import CRCCalculator
 
@@ -136,7 +137,12 @@ class FirmwareSigner:
 
     def encrypt_binary(self):
         print(f"Creating encrypted binary file: {self.fileName_encrypted_bin}")
-        openssl_path = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+        system = platform.system()
+        if system is "Windows":
+            openssl_path = r"C:\Program Files\OpenSSL-Win64\bin\openssl.exe"
+        else:
+            openssl_path = r"openssl"
+
         if not os.path.exists(openssl_path):
                 openssl_path = shutil.which("openssl")
         if not openssl_path:
